@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AureMail | Painel</title>
+  <meta name="description" content="Painel interno inicial do AureMail." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <script>
+    (() => {
+      const savedTheme = localStorage.getItem("auremail-theme");
+      if (savedTheme === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="/assets/css/global.css" />
+  <link rel="stylesheet" href="/assets/css/app.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <aside id="sidebarMount" class="am-sidebar-mount"></aside>
+
+    <main class="app-main">
+      <header class="page-head">
+        <div class="page-head__copy">
+          <h1>Visão Geral</h1>
+          <p>Gerencie sua infraestrutura de e-mail, domínios e caixas de entrada.</p>
+        </div>
+
+        <div class="page-head__actions">
+          <button type="button" class="btn btn-secondary" id="refreshBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 1 0 2.1-5.9L3 8"/><path d="M3 2v6h6"/></svg>
+            Atualizar
+          </button>
+          <button type="button" class="btn btn-primary" id="openMailBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            Abrir Webmail
+          </button>
+        </div>
+      </header>
+
+      <div class="divider"></div>
+
+      <section class="hero-section">
+        <div class="hero-content">
+          <div class="status-indicator">
+            <span class="pulse-dot"></span> 
+            <span class="status-text">Todos os sistemas operacionais</span>
+          </div>
+          <h2>Configure seu ambiente AureMail</h2>
+          <p>
+            Seu painel centraliza o controle da empresa autenticada. A partir daqui, adicione domínios corporativos e crie caixas de e-mail para sua equipe.
+          </p>
+        </div>
+      </section>
+
+      <section class="page-grid">
+        <article class="data-card">
+          <header class="data-card__header">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
+            <h3>Empresa Autenticada</h3>
+          </header>
+          <ul class="data-list">
+            <li>
+              <span class="data-label">Nome</span>
+              <strong class="data-value" id="companyName">Carregando...</strong>
+            </li>
+            <li>
+              <span class="data-label">Documento</span>
+              <strong class="data-value" id="companyDocument">Carregando...</strong>
+            </li>
+            <li>
+              <span class="data-label">Status</span>
+              <strong class="data-value" id="companyStatus">Carregando...</strong>
+            </li>
+          </ul>
+        </article>
+
+        <article class="data-card">
+          <header class="data-card__header">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <h3>Usuário da Sessão</h3>
+          </header>
+          <ul class="data-list">
+            <li>
+              <span class="data-label">Nome</span>
+              <strong class="data-value" id="userName">Carregando...</strong>
+            </li>
+            <li>
+              <span class="data-label">E-mail</span>
+              <strong class="data-value" id="userEmail">Carregando...</strong>
+            </li>
+            <li>
+              <span class="data-label">Nível de Acesso</span>
+              <strong class="data-value" id="userRole">Carregando...</strong>
+            </li>
+          </ul>
+        </article>
+
+        <article class="data-card">
+          <header class="data-card__header">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+            <h3>Status da Conta</h3>
+          </header>
+          <ul class="data-list">
+            <li>
+              <span class="data-label">Situação</span>
+              <span class="status-badge active" id="statusChip">Ambiente ativo</span>
+            </li>
+            <li>
+              <span class="data-label">Domínio Principal</span>
+              <strong class="data-value" id="mainDomain">Carregando...</strong>
+            </li>
+            <li>
+              <span class="data-label">Ação Requerida</span>
+              <strong class="data-value" id="nextStep">Cadastrar domínio</strong>
+            </li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="page-grid page-grid--two mt-6">
+        <article class="data-card">
+          <header class="data-card__header">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            <h3>Ações Rápidas</h3>
+          </header>
+          <div class="action-grid">
+            <button type="button" class="action-btn" id="goDomainsBtn">
+              <div class="action-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
+              </div>
+              <div class="action-text">
+                <strong>Adicionar Domínio</strong>
+                <span>Vincule um novo domínio à sua conta</span>
+              </div>
+              <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+            
+            <button type="button" class="action-btn" id="goMailboxesBtn">
+              <div class="action-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              </div>
+              <div class="action-text">
+                <strong>Criar Caixa de E-mail</strong>
+                <span>Configure um novo endereço de e-mail</span>
+              </div>
+              <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
+        </article>
+
+        <article class="data-card bg-subtle">
+          <header class="data-card__header">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <h3>Documentação & Passos</h3>
+          </header>
+          <ol class="step-list">
+            <li><strong>Verificação:</strong> Adicione o domínio e configure os registros DNS na sua hospedagem.</li>
+            <li><strong>Criação:</strong> Gere as caixas de entrada (ex: contato@suaempresa.com.br).</li>
+            <li><strong>Utilização:</strong> Acesse o Webmail com login e senha para gerenciar suas mensagens.</li>
+          </ol>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script src="/assets/js/app.js"></script>
+</body>
+</html>

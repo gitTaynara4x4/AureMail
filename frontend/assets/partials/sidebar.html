@@ -1,0 +1,425 @@
+<div class="am-sidebar-root">
+  <style>
+    .am-sidebar-root {
+      --am-bg: #fafafa;
+      --am-panel: #ffffff;
+      --am-panel-soft: #fafafa;
+      --am-hover: #f4f4f5;
+      --am-line: #e4e4e7;
+      --am-line-strong: #d4d4d8;
+      --am-text: #18181b;
+      --am-muted: #71717a;
+      --am-brand: #090a0b;
+      --am-brand-hover: #27272a;
+      --am-brand-contrast: #ffffff;
+      --am-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+    }
+
+    html[data-theme="dark"] .am-sidebar-root {
+      --am-bg: #090a0b;
+      --am-panel: #18181b;
+      --am-panel-soft: #111113;
+      --am-hover: #27272a;
+      --am-line: #3f3f46;
+      --am-line-strong: #52525b;
+      --am-text: #f4f4f5;
+      --am-muted: #a1a1aa;
+      --am-brand: #ffffff;
+      --am-brand-hover: #e4e4e7;
+      --am-brand-contrast: #090a0b;
+      --am-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+    }
+
+    .section-layout,
+    .mail-layout,
+    .app-layout {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      background: var(--am-bg);
+    }
+
+    .section-main,
+    .app-main,
+    .mail-main {
+      min-width: 0;
+    }
+
+    .am-sidebar-mount {
+      min-height: 100vh;
+      background: var(--am-panel);
+    }
+
+    .am-sidebar {
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 24px 16px;
+      background: var(--am-panel);
+      border-right: 1px solid var(--am-line);
+      box-shadow: var(--am-shadow);
+      transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease,
+        color 0.25s ease,
+        box-shadow 0.25s ease;
+    }
+
+    .am-sidebar__brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 6px 16px;
+    }
+
+    /* Ajuste para a logo completa (ícone + texto) */
+    .am-sidebar__brand-logo {
+      height: 27px;
+      width: auto; /* Permite que a imagem estique para os lados */
+      max-width: 180px; /* Limite de segurança para não vazar a barra */
+      object-fit: contain; /* Mantém a proporção sem distorcer */
+      background: transparent;
+    }
+
+    .am-sidebar__company,
+    .am-sidebar__domain,
+    .am-sidebar__user {
+      background: var(--am-panel-soft);
+      border: 1px solid var(--am-line);
+      border-radius: 10px;
+      padding: 12px 14px;
+      transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease,
+        color 0.25s ease;
+    }
+
+    .am-sidebar__company span,
+    .am-sidebar__domain span {
+      display: block;
+      color: var(--am-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+      font-weight: 600;
+      transition: color 0.25s ease;
+    }
+
+    .am-sidebar__company strong,
+    .am-sidebar__domain strong {
+      display: block;
+      color: var(--am-text);
+      font-size: 14px;
+      font-weight: 600;
+      word-break: break-word;
+      transition: color 0.25s ease;
+    }
+
+    .am-sidebar__domain small {
+      display: block;
+      margin-top: 4px;
+      color: var(--am-muted);
+      font-size: 12px;
+      word-break: break-word;
+      transition: color 0.25s ease;
+    }
+
+    .am-sidebar__nav {
+      display: grid;
+      gap: 6px;
+    }
+
+    .am-sidebar__link {
+      display: flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 12px;
+      border-radius: 8px;
+      text-decoration: none;
+      color: var(--am-text);
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid transparent;
+      transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        transform 0.15s ease;
+    }
+
+    .am-sidebar__link:hover {
+      background: var(--am-hover);
+      border-color: var(--am-line);
+      color: var(--am-brand);
+      transform: translateX(1px);
+    }
+
+    .am-sidebar__link.is-active {
+      background: var(--am-hover);
+      border-color: var(--am-line);
+      color: var(--am-brand);
+      font-weight: 600;
+    }
+
+    .am-sidebar__user {
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .am-sidebar__avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--am-brand-contrast);
+      background: var(--am-brand);
+      flex-shrink: 0;
+      transition:
+        background-color 0.25s ease,
+        color 0.25s ease;
+    }
+
+    .am-sidebar__user-copy {
+      min-width: 0;
+    }
+
+    .am-sidebar__user-copy strong {
+      display: block;
+      color: var(--am-text);
+      font-size: 13px;
+      font-weight: 600;
+      transition: color 0.25s ease;
+    }
+
+    .am-sidebar__user-copy span {
+      display: block;
+      margin-top: 2px;
+      color: var(--am-muted);
+      font-size: 12px;
+      word-break: break-word;
+      transition: color 0.25s ease;
+    }
+
+    .am-sidebar__logout {
+      appearance: none;
+      border: 1px solid var(--am-line);
+      background: var(--am-panel);
+      color: var(--am-text);
+      border-radius: 8px;
+      min-height: 40px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        transform 0.15s ease;
+    }
+
+    .am-sidebar__logout:hover {
+      background: var(--am-hover);
+      border-color: var(--am-line-strong);
+    }
+
+    .am-sidebar__logout:active {
+      transform: scale(0.985);
+    }
+
+    @media (max-width: 980px) {
+      .section-layout,
+      .mail-layout,
+      .app-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .am-sidebar-mount {
+        min-height: auto;
+      }
+
+      .am-sidebar {
+        position: static;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--am-line);
+        box-shadow: none;
+      }
+    }
+  </style>
+
+  <aside class="am-sidebar">
+    <div class="am-sidebar__brand">
+      <img src="assets/img/logo.png" alt="Logo AureMail" class="am-sidebar__brand-logo" />
+    </div>
+
+    <div class="am-sidebar__company">
+      <span>Empresa atual</span>
+      <strong data-am-company-name>Carregando...</strong>
+    </div>
+
+    <nav class="am-sidebar__nav">
+      <a href="/app" class="am-sidebar__link" data-am-link="/app">Visão Geral</a>
+      <a href="/dominios" class="am-sidebar__link" data-am-link="/dominios">Domínios</a>
+      <a href="/caixas-email" class="am-sidebar__link" data-am-link="/caixas-email">Caixas de e-mail</a>
+      <a href="/mail" class="am-sidebar__link" data-am-link="/mail">Webmail</a>
+      <a href="/configuracoes" class="am-sidebar__link" data-am-link="/configuracoes">Configurações</a>
+    </nav>
+
+    <div class="am-sidebar__domain">
+      <span>Domínio principal</span>
+      <strong data-am-domain-name>Nenhum domínio</strong>
+      <small data-am-domain-email>Cadastre um domínio</small>
+    </div>
+
+    <div class="am-sidebar__user">
+      <div class="am-sidebar__avatar" data-am-user-avatar>A</div>
+      <div class="am-sidebar__user-copy">
+        <strong data-am-user-name>Usuário</strong>
+        <span data-am-user-email>usuario@email.com</span>
+      </div>
+    </div>
+
+    <button type="button" class="am-sidebar__logout" data-am-logout-btn>
+      Sair da conta
+    </button>
+  </aside>
+
+  <script>
+    (() => {
+      const script = document.currentScript;
+      const root = script ? script.closest(".am-sidebar-root") : null;
+      if (!root) return;
+
+      function getInitials(name) {
+        return (name || "A")
+          .split(" ")
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part.charAt(0).toUpperCase())
+          .join("") || "A";
+      }
+
+      function setText(selector, value, fallback = "") {
+        const el = root.querySelector(selector);
+        if (!el) return;
+        el.textContent = value || fallback;
+      }
+
+      function normalizePath(path) {
+        return (path || "").replace(/\/+$/, "") || "/";
+      }
+
+      function markActiveLinks() {
+        const currentPath = normalizePath(window.location.pathname);
+        const links = root.querySelectorAll("[data-am-link]");
+
+        links.forEach((link) => {
+          const target = normalizePath(link.getAttribute("data-am-link"));
+          link.classList.toggle("is-active", target === currentPath);
+        });
+      }
+
+      async function loadSession() {
+        try {
+          const response = await fetch("/api/me", {
+            method: "GET",
+            credentials: "include",
+            headers: { Accept: "application/json" }
+          });
+
+          if (response.status === 401) {
+            window.location.href = "/login";
+            return null;
+          }
+
+          if (!response.ok) return null;
+          return await response.json();
+        } catch (error) {
+          console.error("Erro ao carregar dados da sidebar:", error);
+          return null;
+        }
+      }
+
+      function applySession(data) {
+        const company = data?.company || {};
+        const user = data?.user || {};
+        const mailbox = data?.mailbox || {};
+
+        const displayName = mailbox.display_name || user.name || "Usuário";
+        const email = mailbox.email || user.email || "";
+        const domain = mailbox.domain || "Nenhum domínio cadastrado";
+        const companyName = company.name || "Empresa";
+
+        setText("[data-am-company-name]", companyName, "Empresa");
+        setText("[data-am-domain-name]", domain, "Nenhum domínio cadastrado");
+        setText(
+          "[data-am-domain-email]",
+          email || "Cadastre um domínio para continuar",
+          "Cadastre um domínio para continuar"
+        );
+        setText("[data-am-user-name]", displayName, "Usuário");
+        setText("[data-am-user-email]", email, "");
+
+        const avatar = root.querySelector("[data-am-user-avatar]");
+        if (avatar) {
+          avatar.textContent = getInitials(displayName);
+        }
+      }
+
+      async function doLogout() {
+        try {
+          await fetch("/api/logout", {
+            method: "POST",
+            credentials: "include",
+            headers: { Accept: "application/json" }
+          });
+        } catch (error) {
+          console.error("Erro ao fazer logout:", error);
+        } finally {
+          try {
+            localStorage.removeItem("auremail_session");
+            sessionStorage.removeItem("auremail_temp_session");
+          } catch (_) {}
+          window.location.href = "/login";
+        }
+      }
+
+      function bindEvents() {
+        const logoutBtn = root.querySelector("[data-am-logout-btn]");
+        if (logoutBtn) {
+          logoutBtn.addEventListener("click", doLogout);
+        }
+      }
+
+      async function init() {
+        markActiveLinks();
+        bindEvents();
+
+        const data = await loadSession();
+        if (data) {
+          applySession(data);
+        }
+
+        window.AureMailSidebar = {
+          refresh: async () => {
+            const fresh = await loadSession();
+            if (fresh) applySession(fresh);
+          },
+          apply: applySession
+        };
+      }
+
+      init();
+    })();
+  </script>
+</div>

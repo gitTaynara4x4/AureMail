@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AureMail | Caixas de e-mail</title>
+  <meta name="description" content="Gestão de caixas de e-mail do AureMail." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+    (() => {
+      const savedTheme = localStorage.getItem("auremail-theme");
+      if (savedTheme === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="./assets/css/global.css" />
+  <link rel="stylesheet" href="./assets/css/caixas-email.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <aside id="sidebarMount" class="am-sidebar-mount"></aside>
+
+    <main class="app-main">
+      <header class="page-head">
+        <div class="page-head__copy">
+          <h1>Caixas de E-mail</h1>
+          <p>Crie e gerencie as contas profissionais (ex: contato@suaempresa.com.br) vinculadas aos seus domínios.</p>
+        </div>
+
+        <div class="page-head__actions">
+          <button type="button" class="btn btn-secondary" id="refreshMailboxesBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 1 0 2.1-5.9L3 8"/><path d="M3 2v6h6"/></svg>
+            Atualizar
+          </button>
+          <button type="button" class="btn btn-secondary" id="backToDomainsBtn">
+            Voltar para domínios
+          </button>
+        </div>
+      </header>
+
+      <div class="divider"></div>
+
+      <section class="page-grid">
+        <article class="data-card form-card">
+          <header class="data-card__header">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            <h3>Criar Nova Caixa</h3>
+          </header>
+
+          <div class="card-body">
+            <form id="mailboxForm" novalidate>
+              <div class="field">
+                <label for="mailboxDomainId">Domínio Vínculado</label>
+                <div class="select-wrapper">
+                  <select id="mailboxDomainId" name="mailboxDomainId" required>
+                    <option value="">Carregando domínios...</option>
+                  </select>
+                  <svg class="select-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="mailboxLocalPart">Nome da Conta (antes do @)</label>
+                <input
+                  type="text"
+                  id="mailboxLocalPart"
+                  name="mailboxLocalPart"
+                  placeholder="Ex.: contato, financeiro"
+                  maxlength="120"
+                  required
+                />
+              </div>
+
+              <div class="field">
+                <label for="mailboxDisplayName">Nome de Exibição</label>
+                <input
+                  type="text"
+                  id="mailboxDisplayName"
+                  name="mailboxDisplayName"
+                  placeholder="Ex.: Contato Comercial"
+                  maxlength="150"
+                />
+              </div>
+
+              <div class="field">
+                <label for="mailboxQuotaMb">Quota / Armazenamento (MB)</label>
+                <input
+                  type="number"
+                  id="mailboxQuotaMb"
+                  name="mailboxQuotaMb"
+                  min="128"
+                  max="102400"
+                  step="128"
+                  value="2048"
+                  required
+                />
+              </div>
+
+              <label class="checkbox-row" for="mailboxIsActive">
+                <input type="checkbox" id="mailboxIsActive" name="mailboxIsActive" checked />
+                <span class="checkbox-box">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </span>
+                <span class="checkbox-text">Ativar caixa imediatamente</span>
+              </label>
+
+              <button type="submit" class="btn btn-primary w-full mt-4" id="createMailboxBtn">
+                Salvar caixa de e-mail
+              </button>
+
+              <div class="form-message info" id="mailboxFormMessage"></div>
+            </form>
+          </div>
+        </article>
+
+        <article class="data-card list-card">
+          <header class="data-card__header justify-between">
+            <div class="header-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="M19 16v6"/><path d="M22 19h-6"/></svg>
+              <h3>Contas Cadastradas</h3>
+            </div>
+            <span class="badge" id="mailboxesCount">0 itens</span>
+          </header>
+
+          <div class="domain-list" id="mailboxList">
+            <div class="empty-note">Carregando caixas de e-mail...</div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script src="./assets/js/caixas-email.js"></script>
+</body>
+</html>

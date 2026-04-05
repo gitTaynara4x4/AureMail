@@ -13,21 +13,10 @@ class StalwartProvisioningError(RuntimeError):
     """Erro amigável para provisionamento no servidor de e-mail."""
 
 
-def _env_bool(name: str, default: bool = False) -> bool:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
 class StalwartClient:
-    """
-    Cliente mínimo para a Management API do Stalwart.
+    """Cliente simples para a Management API do Stalwart.
 
-    Observações:
-    - aceita token Bearer OU usuário/senha Basic
-    - usa apenas urllib da stdlib
-    - trabalha em modo idempotente sempre que possível
+    Suporta autenticação por Bearer token ou Basic Auth.
     """
 
     def __init__(self) -> None:
@@ -36,7 +25,7 @@ class StalwartClient:
         self.api_user = (os.getenv("AUREMAIL_MAIL_SERVER_API_USER", "") or "").strip()
         self.api_password = (os.getenv("AUREMAIL_MAIL_SERVER_API_PASSWORD", "") or "").strip()
         self.timeout = int((os.getenv("AUREMAIL_MAIL_SERVER_TIMEOUT", "15") or "15").strip())
-        self.verify_ssl = _env_bool("AUREMAIL_MAIL_SERVER_VERIFY_SSL", True)
+        self.verify_ssl = (os.getenv("AUREMAIL_MAIL_SERVER_VERIFY_SSL", "false") or "false").strip().lower() == "true"
 
     @property
     def enabled(self) -> bool:
@@ -61,26 +50,21 @@ class StalwartClient:
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
-
         if self.api_token:
             headers["Authorization"] = f"Bearer {self.api_token}"
         elif self.api_user and self.api_password:
             raw = f"{self.api_user}:{self.api_password}".encode("utf-8")
             headers["Authorization"] = "Basic " + base64.b64encode(raw).decode("utf-8")
-
         return headers
 
     def _ssl_context(self):
         if self.verify_ssl:
             return None
-        return ssl._create_unverified_context()  # noqa: SLF001
+        return ssl._create_unverified_context()  # noqa: S323
 
     def _request(self, method: str, path: str, payload: Any | None = None) -> Any:
         url = self._build_url(path)
-        data = None
-        if payload is not None:
-            data = json.dumps(payload).encode("utf-8")
-
+        data = json.dumps(payload).encode("utf-8") if payload is not None else None
         req = urllib.request.Request(
             url=url,
             data=data,
@@ -91,12 +75,12 @@ class StalwartClient:
         try:
             with urllib.request.urlopen(req, timeout=self.timeout, context=self._ssl_context()) as response:
                 raw = response.read().decode("utf-8")
-        except urllib.error.HTTPError as exc:  # type: ignore[attr-defined]
+        except urllib.error.HTTPError as exc:
             detail = ""
             try:
-                raw = exc.read().decode("utf-8")
-                parsed = json.loads(raw)
-                detail = parsed.get("detail") or parsed.get("message") or raw
+                body = exc.read().decode("utf-8")
+                parsed = json.loads(body)
+                detail = parsed.get("detail") or parsed.get("message") or body
             except Exception:
                 detail = str(exc)
             raise StalwartProvisioningError(
@@ -109,64 +93,56 @@ class StalwartClient:
 
         if not raw:
             return None
-
         try:
             parsed = json.loads(raw)
         except Exception:
             return raw
-
         return parsed.get("data", parsed)
 
     def list_principals(self, principal_type: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
         page = 0
-
         while True:
-            query = {
-                "page": page,
-                "limit": limit,
-            }
+            query: dict[str, Any] = {"page": page, "limit": limit}
             if principal_type:
                 query["types"] = principal_type
-
             path = "/principal?" + urllib.parse.urlencode(query)
             payload = self._request("GET", path) or {}
             batch = list(payload.get("items") or [])
             items.extend(batch)
-
             total = int(payload.get("total") or len(items))
             if len(items) >= total or not batch:
                 break
-
             page += 1
-
         return items
+
+    @staticmethod
+    def _normalize_email(value: str) -> str:
+        return str(value or "").strip().lower()
 
     @staticmethod
     def _emails_from_principal(item: dict[str, Any]) -> list[str]:
         emails = item.get("emails") or []
         if isinstance(emails, str):
-            return [emails.strip().lower()] if emails.strip() else []
+            email = StalwartClient._normalize_email(emails)
+            return [email] if email else []
         if isinstance(emails, list):
-            return [str(email).strip().lower() for email in emails if str(email).strip()]
+            return [StalwartClient._normalize_email(email) for email in emails if str(email).strip()]
         return []
 
     def find_principal_by_name(self, name: str, principal_type: str | None = None) -> dict[str, Any] | None:
         wanted = str(name or "").strip().lower()
         if not wanted:
             return None
-
         for item in self.list_principals(principal_type=principal_type):
-            candidate = str(item.get("name") or "").strip().lower()
-            if candidate == wanted:
+            if str(item.get("name") or "").strip().lower() == wanted:
                 return item
         return None
 
     def find_principal_by_email(self, email: str) -> dict[str, Any] | None:
-        wanted = str(email or "").strip().lower()
+        wanted = self._normalize_email(email)
         if not wanted:
             return None
-
         for item in self.list_principals(principal_type="individual"):
             if wanted in self._emails_from_principal(item):
                 return item
@@ -197,6 +173,23 @@ class StalwartClient:
         created_id = self._request("POST", "/principal", payload)
         return int(created_id)
 
+    def rename_domain(self, old_domain_name: str, new_domain_name: str) -> None:
+        old_domain_name = str(old_domain_name or "").strip().lower()
+        new_domain_name = str(new_domain_name or "").strip().lower()
+        if old_domain_name == new_domain_name:
+            return
+
+        existing = self.find_principal_by_name(old_domain_name, principal_type="domain")
+        if not existing:
+            self.create_domain(new_domain_name)
+            return
+
+        operations = [
+            {"action": "set", "field": "name", "value": new_domain_name},
+            {"action": "set", "field": "description", "value": new_domain_name},
+        ]
+        self._request("PATCH", f"/principal/{existing['id']}", operations)
+
     def delete_domain(self, domain_name: str) -> None:
         existing = self.find_principal_by_name(domain_name, principal_type="domain")
         if not existing:
@@ -211,15 +204,13 @@ class StalwartClient:
         password: str,
         display_name: str | None = None,
         quota_bytes: int = 0,
+        is_enabled: bool = True,
     ) -> int:
         login_name = str(login_name or "").strip().lower()
-        email = str(email or "").strip().lower()
-
+        email = self._normalize_email(email)
         existing = self.find_principal_by_email(email)
         if existing:
-            raise StalwartProvisioningError(
-                f"A caixa {email} já existe no servidor de e-mail."
-            )
+            raise StalwartProvisioningError(f"A caixa {email} já existe no servidor de e-mail.")
 
         payload = {
             "type": "individual",
@@ -238,35 +229,41 @@ class StalwartClient:
             "externalMembers": [],
         }
         created_id = self._request("POST", "/principal", payload)
+        if not is_enabled:
+            self.update_mailbox_by_email(email, is_active=False)
         return int(created_id)
 
-    def update_mailbox(
+    def update_mailbox_by_email(
         self,
-        principal_id: int,
+        current_email: str,
         *,
+        new_login_name: str | None = None,
+        new_email: str | None = None,
         display_name: str | None = None,
         quota_bytes: int | None = None,
         password: str | None = None,
         is_active: bool | None = None,
     ) -> None:
-        operations: list[dict[str, Any]] = []
+        existing = self.find_principal_by_email(current_email)
+        if not existing:
+            raise StalwartProvisioningError(f"A caixa {current_email} não existe no servidor de e-mail.")
 
+        operations: list[dict[str, Any]] = []
+        if new_login_name is not None:
+            operations.append({"action": "set", "field": "name", "value": str(new_login_name).strip().lower()})
+        if new_email is not None:
+            operations.append({"action": "set", "field": "emails", "value": [self._normalize_email(new_email)]})
         if display_name is not None:
             operations.append({"action": "set", "field": "description", "value": display_name})
-
         if quota_bytes is not None:
             operations.append({"action": "set", "field": "quota", "value": int(quota_bytes)})
-
         if password is not None:
             operations.append({"action": "set", "field": "secrets", "value": [password]})
-
         if is_active is not None:
             operations.append({"action": "set", "field": "isEnabled", "value": bool(is_active)})
 
-        if not operations:
-            return
-
-        self._request("PATCH", f"/principal/{principal_id}", operations)
+        if operations:
+            self._request("PATCH", f"/principal/{existing['id']}", operations)
 
     def delete_mailbox_by_email(self, email: str) -> None:
         existing = self.find_principal_by_email(email)

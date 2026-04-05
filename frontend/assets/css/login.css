@@ -152,24 +152,22 @@ a { color: inherit; text-decoration: none; }
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
+/* Layout do cabeçalho do card */
 .login-card__top {
   display: flex;
-  align-items: center;
+  flex-direction: column; /* Deixei em coluna para a logo ficar em cima do texto, fica mais elegante! */
+  align-items: flex-start;
   gap: 16px;
   margin-bottom: 32px;
 }
 
-.brand-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  background: var(--accent-primary);
-  border-radius: 12px;
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--bg-surface);
+/* CSS NOVO PARA A LOGO */
+.brand-logo {
+  height: 32px; /* Ajuste este valor se quiser a logo maior ou menor */
+  width: auto;
+  max-width: 200px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .login-card__top h2 {

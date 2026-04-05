@@ -1,3 +1,6 @@
+/* =========================================================
+   VARIÁVEIS DE TEMA (CLARO E ESCURO)
+========================================================= */
 :root {
   --bg-app: #f6f7fb;
   --bg-surface: #ffffff;
@@ -17,10 +20,8 @@
 
   --success-bg: #dcfce7;
   --success-text: #166534;
-
   --warning-bg: #fef3c7;
   --warning-text: #b45309;
-
   --danger-bg: #fee2e2;
   --danger-text: #b91c1c;
 
@@ -30,38 +31,59 @@
 
   --shadow-card: 0 10px 30px -18px rgba(15, 23, 42, 0.12);
   --shadow-hover: 0 18px 40px -22px rgba(15, 23, 42, 0.18);
+
+  /* Variáveis de brilho de fundo para o modo claro */
+  --glow-1: rgba(99, 102, 241, 0.08);
+  --glow-2: rgba(16, 185, 129, 0.06);
 }
 
 html[data-theme="dark"] {
-  --bg-app: #09090b;
-  --bg-surface: #111214;
-  --bg-surface-2: #15171a;
-  --bg-subtle: #181b20;
+  /* Fundo principal do app (O cinza clássico do ChatGPT) */
+  --bg-app: #212121;
+  
+  /* Fundo dos cartões e elementos (Cinza um pouco mais claro) */
+  --bg-surface: #2f2f2f;
+  
+  /* Fundo para áreas de hover/foco */
+  --bg-surface-2: #383838;
+  
+  /* Fundo da barra lateral e seções escuras */
+  --bg-subtle: #171717;
 
-  --border-light: #27272a;
-  --border-hover: #3f3f46;
+  /* Bordas muito sutis (o ChatGPT quase não marca as bordas) */
+  --border-light: rgba(255, 255, 255, 0.1);
+  --border-hover: rgba(255, 255, 255, 0.2);
 
-  --text-main: #f5f7fb;
-  --text-soft: #d4d8e1;
-  --text-muted: #97a0af;
+  /* A cor exata de fonte do ChatGPT (um branco mais "suave") */
+  --text-main: #ececec;
+  --text-soft: #c5c5d2;
+  --text-muted: #8e8ea0;
 
-  --accent-primary: #f5f7fb;
-  --accent-hover: #e5e7eb;
-  --accent-contrast: #09090b;
+  /* O Verde oficial da OpenAI para o botão principal */
+  --accent-primary: #10a37f;
+  --accent-hover: #0e906f;
+  --accent-contrast: #ffffff;
 
-  --success-bg: rgba(34, 197, 94, 0.14);
-  --success-text: #86efac;
+  /* Cores de status adaptadas */
+  --success-bg: rgba(16, 163, 127, 0.1);
+  --success-text: #10a37f;
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --warning-text: #fbbf24;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --danger-text: #ef4444;
 
-  --warning-bg: rgba(245, 158, 11, 0.14);
-  --warning-text: #fcd34d;
+  /* Sombras quase imperceptíveis, layout flat */
+  --shadow-card: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-hover: 0 6px 12px rgba(0, 0, 0, 0.15);
 
-  --danger-bg: rgba(239, 68, 68, 0.14);
-  --danger-text: #fca5a5;
-
-  --shadow-card: 0 14px 40px -24px rgba(0, 0, 0, 0.55);
-  --shadow-hover: 0 24px 60px -28px rgba(0, 0, 0, 0.75);
+  /* O ChatGPT não usa brilhos radiais no fundo, então zeramos eles aqui */
+  --glow-1: transparent;
+  --glow-2: transparent;
 }
 
+/* =========================================================
+   RESETS E ESTRUTURA GERAL
+========================================================= */
 * {
   box-sizing: border-box;
 }
@@ -74,14 +96,14 @@ body {
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(99, 102, 241, 0.08), transparent 26%),
-    radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.06), transparent 24%),
+    radial-gradient(circle at top left, var(--glow-1), transparent 26%),
+    radial-gradient(circle at bottom right, var(--glow-2), transparent 24%),
     var(--bg-app);
   color: var(--text-main);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.25s ease, color 0.25s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .app-main {
@@ -90,7 +112,9 @@ body {
   margin: 0 auto;
 }
 
-/* header */
+/* =========================================================
+   CABEÇALHO DA PÁGINA
+========================================================= */
 .page-head {
   display: flex;
   align-items: flex-end;
@@ -124,7 +148,9 @@ body {
   gap: 12px;
 }
 
-/* buttons */
+/* =========================================================
+   BOTÕES
+========================================================= */
 .btn {
   appearance: none;
   border-radius: 10px;
@@ -179,7 +205,9 @@ body {
   transform: translateY(-1px);
 }
 
-/* hero */
+/* =========================================================
+   HERO E STATUS
+========================================================= */
 .hero-section {
   margin-bottom: 32px;
 }
@@ -239,7 +267,9 @@ body {
   line-height: 1.7;
 }
 
-/* grids */
+/* =========================================================
+   GRIDS E CARDS
+========================================================= */
 .page-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -254,7 +284,6 @@ body {
   margin-top: 20px;
 }
 
-/* cards */
 .data-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-light);
@@ -300,7 +329,9 @@ body {
   letter-spacing: -0.01em;
 }
 
-/* lists */
+/* =========================================================
+   LISTAS DE DADOS
+========================================================= */
 .data-list {
   list-style: none;
   margin: 0;
@@ -333,7 +364,9 @@ body {
   word-break: break-word;
 }
 
-/* status */
+/* =========================================================
+   CHIPS DE STATUS
+========================================================= */
 .status-chip {
   display: inline-flex;
   align-items: center;
@@ -363,7 +396,9 @@ body {
   border-color: rgba(239, 68, 68, 0.18);
 }
 
-/* action grid */
+/* =========================================================
+   AÇÕES RÁPIDAS (BOTOES EM LISTA)
+========================================================= */
 .action-grid {
   display: flex;
   flex-direction: column;
@@ -437,7 +472,9 @@ body {
   color: var(--text-main);
 }
 
-/* steps */
+/* =========================================================
+   LISTA DE PASSOS (DOCUMENTAÇÃO)
+========================================================= */
 .step-list {
   margin: 0;
   padding: 24px 24px 24px 42px;
@@ -459,7 +496,9 @@ body {
   font-weight: 700;
 }
 
-/* responsive */
+/* =========================================================
+   RESPONSIVIDADE (MOBILE)
+========================================================= */
 @media (max-width: 900px) {
   .page-grid,
   .page-grid--two {

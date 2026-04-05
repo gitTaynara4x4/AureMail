@@ -10,7 +10,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import Dominio, UsuarioPlataforma
+from backend.integrations.stalwart_client import (
+    StalwartProvisioningError,
+    get_stalwart_client,
+)
+from backend.models import CaixaEmail, Dominio, UsuarioPlataforma
 from backend.routers.auth import get_current_user
 
 
@@ -22,12 +26,17 @@ DOMAIN_REGEX = re.compile(
 )
 
 AUREMAIL_PUBLIC_IP = os.getenv("AUREMAIL_PUBLIC_IP", "").strip()
-AUREMAIL_APP_SUBDOMAIN = os.getenv("AUREMAIL_APP_SUBDOMAIN", "auremail").strip().lower()
+AUREMAIL_APP_SUBDOMAIN = os.getenv("AUREMAIL_APP_SUBDOMAIN", "").strip().lower()
 AUREMAIL_MAIL_SUBDOMAIN = os.getenv("AUREMAIL_MAIL_SUBDOMAIN", "mail").strip().lower()
 AUREMAIL_DKIM_SELECTOR = os.getenv("AUREMAIL_DKIM_SELECTOR", "default").strip().lower()
 AUREMAIL_DKIM_PUBLIC_KEY = os.getenv("AUREMAIL_DKIM_PUBLIC_KEY", "").strip()
 AUREMAIL_DMARC_REPORT_LOCAL_PART = os.getenv("AUREMAIL_DMARC_REPORT_LOCAL_PART", "dmarc").strip().lower()
 AUREMAIL_DNS_TTL = os.getenv("AUREMAIL_DNS_TTL", "3600").strip() or "3600"
+
+# Novo modelo SaaS:
+# todos os clientes apontam o MX para um hostname fixo seu, ex: mail.auremail.com
+AUREMAIL_MAIL_SERVER_MX_HOST = os.getenv("AUREMAIL_MAIL_SERVER_MX_HOST", "").strip().lower()
+AUREMAIL_PANEL_PUBLIC_HOST = os.getenv("AUREMAIL_PANEL_PUBLIC_HOST", "").strip().lower()
 
 
 class DomainCreateRequest(BaseModel):
@@ -117,16 +126,24 @@ def get_fallback_domain(
     )
 
 
-def build_app_host(domain_name: str) -> str:
-    return f"{AUREMAIL_APP_SUBDOMAIN}.{domain_name}" if AUREMAIL_APP_SUBDOMAIN else domain_name
+def count_mailboxes_for_domain(db: Session, domain_id: int) -> int:
+    return int(
+        db.query(CaixaEmail)
+        .filter(CaixaEmail.dominio_id == domain_id)
+        .count()
+    )
 
 
 def build_mail_host(domain_name: str) -> str:
+    if AUREMAIL_MAIL_SERVER_MX_HOST:
+        return AUREMAIL_MAIL_SERVER_MX_HOST
     return f"{AUREMAIL_MAIL_SUBDOMAIN}.{domain_name}" if AUREMAIL_MAIL_SUBDOMAIN else domain_name
 
 
 def build_spf_value(domain_name: str) -> str:
     mail_host = build_mail_host(domain_name)
+    if mail_host == domain_name:
+        return "v=spf1 mx ~all"
     return f"v=spf1 mx a:{mail_host} ~all"
 
 
@@ -163,121 +180,131 @@ def doh_lookup(name: str, record_type: str) -> list[str]:
     url = f"https://dns.google/resolve?{query}"
 
     try:
-      with urllib.request.urlopen(url, timeout=8) as response:
-          payload = json.loads(response.read().decode("utf-8"))
+        with urllib.request.urlopen(url, timeout=8) as response:
+            payload = json.loads(response.read().decode("utf-8"))
     except Exception:
-      return []
+        return []
 
     answers = payload.get("Answer") or []
     return [str(item.get("data", "")) for item in answers]
 
 
+def should_customer_create_mail_a(domain_name: str) -> bool:
+    mail_host = build_mail_host(domain_name)
+    return mail_host == domain_name or mail_host.endswith(f".{domain_name}")
+
+
 def build_dns_records(domain_name: str) -> list[dict]:
-    app_host = build_app_host(domain_name)
+    records: list[dict] = []
     mail_host = build_mail_host(domain_name)
     dkim_host = f"{AUREMAIL_DKIM_SELECTOR}._domainkey.{domain_name}"
+    has_dkim_key = bool(AUREMAIL_DKIM_PUBLIC_KEY)
 
-    records = [
-        {
-            "key": "app_a",
-            "label": "Painel do AureMail",
-            "description": "Subdomínio do painel/app web",
-            "type": "A",
-            "host": AUREMAIL_APP_SUBDOMAIN or "@",
-            "fqdn": app_host,
-            "value": AUREMAIL_PUBLIC_IP,
-            "display_value": AUREMAIL_PUBLIC_IP or "CONFIGURE AUREMAIL_PUBLIC_IP",
-            "copy_value": AUREMAIL_PUBLIC_IP or "",
-            "ttl": AUREMAIL_DNS_TTL,
-            "required": False,
-        },
-        {
-            "key": "mail_a",
-            "label": "Servidor de e-mail",
-            "description": "Host usado pelo MX e pelo PTR",
-            "type": "A",
-            "host": AUREMAIL_MAIL_SUBDOMAIN or "@",
-            "fqdn": mail_host,
-            "value": AUREMAIL_PUBLIC_IP,
-            "display_value": AUREMAIL_PUBLIC_IP or "CONFIGURE AUREMAIL_PUBLIC_IP",
-            "copy_value": AUREMAIL_PUBLIC_IP or "",
-            "ttl": AUREMAIL_DNS_TTL,
-            "required": True,
-        },
-        {
-            "key": "mx",
-            "label": "Entrada de e-mail",
-            "description": "Registro MX do domínio principal",
-            "type": "MX",
-            "host": "@",
-            "fqdn": domain_name,
-            "value": f"10 {mail_host}",
-            "display_value": f"10 {mail_host}",
-            "copy_value": f"10 {mail_host}",
-            "ttl": AUREMAIL_DNS_TTL,
-            "required": True,
-        },
-        {
-            "key": "spf",
-            "label": "SPF",
-            "description": "Autoriza o host de e-mail a enviar pelo domínio",
-            "type": "TXT",
-            "host": "@",
-            "fqdn": domain_name,
-            "value": build_spf_value(domain_name),
-            "display_value": build_spf_value(domain_name),
-            "copy_value": build_spf_value(domain_name),
-            "ttl": AUREMAIL_DNS_TTL,
-            "required": True,
-        },
-        {
-            "key": "dmarc",
-            "label": "DMARC",
-            "description": "Política inicial de autenticação e relatórios",
-            "type": "TXT",
-            "host": "_dmarc",
-            "fqdn": f"_dmarc.{domain_name}",
-            "value": build_dmarc_value(domain_name),
-            "display_value": build_dmarc_value(domain_name),
-            "copy_value": build_dmarc_value(domain_name),
-            "ttl": AUREMAIL_DNS_TTL,
-            "required": True,
-        },
-        {
-            "key": "dkim",
-            "label": "DKIM",
-            "description": "Chave pública do servidor de e-mail",
-            "type": "TXT",
-            "host": f"{AUREMAIL_DKIM_SELECTOR}._domainkey",
-            "fqdn": dkim_host,
-            "value": AUREMAIL_DKIM_PUBLIC_KEY,
-            "display_value": AUREMAIL_DKIM_PUBLIC_KEY or "GERAR CHAVE DKIM NO SERVIDOR E PREENCHER AUREMAIL_DKIM_PUBLIC_KEY",
-            "copy_value": AUREMAIL_DKIM_PUBLIC_KEY or "",
-            "ttl": AUREMAIL_DNS_TTL,
-            "required": True,
-        },
-    ]
+    if should_customer_create_mail_a(domain_name):
+        records.append(
+            {
+                "key": "mail_a",
+                "label": "Servidor de e-mail",
+                "description": "Host usado pelo MX e pelo PTR",
+                "type": "A",
+                "host": AUREMAIL_MAIL_SUBDOMAIN or "@",
+                "fqdn": mail_host,
+                "value": AUREMAIL_PUBLIC_IP,
+                "display_value": AUREMAIL_PUBLIC_IP or "CONFIGURE AUREMAIL_PUBLIC_IP",
+                "copy_value": AUREMAIL_PUBLIC_IP or "",
+                "ttl": AUREMAIL_DNS_TTL,
+                "required": True,
+            }
+        )
+
+    records.extend(
+        [
+            {
+                "key": "mx",
+                "label": "Entrada de e-mail",
+                "description": "Registro MX do domínio principal",
+                "type": "MX",
+                "host": "@",
+                "fqdn": domain_name,
+                "value": f"10 {mail_host}",
+                "display_value": f"10 {mail_host}",
+                "copy_value": f"10 {mail_host}",
+                "ttl": AUREMAIL_DNS_TTL,
+                "required": True,
+            },
+            {
+                "key": "spf",
+                "label": "SPF",
+                "description": "Autoriza o host de e-mail a enviar pelo domínio",
+                "type": "TXT",
+                "host": "@",
+                "fqdn": domain_name,
+                "value": build_spf_value(domain_name),
+                "display_value": build_spf_value(domain_name),
+                "copy_value": build_spf_value(domain_name),
+                "ttl": AUREMAIL_DNS_TTL,
+                "required": True,
+            },
+            {
+                "key": "dmarc",
+                "label": "DMARC",
+                "description": "Política inicial de autenticação e relatórios",
+                "type": "TXT",
+                "host": "_dmarc",
+                "fqdn": f"_dmarc.{domain_name}",
+                "value": build_dmarc_value(domain_name),
+                "display_value": build_dmarc_value(domain_name),
+                "copy_value": build_dmarc_value(domain_name),
+                "ttl": AUREMAIL_DNS_TTL,
+                "required": True,
+            },
+            {
+                "key": "dkim",
+                "label": "DKIM",
+                "description": "Chave pública do domínio",
+                "type": "TXT",
+                "host": f"{AUREMAIL_DKIM_SELECTOR}._domainkey",
+                "fqdn": dkim_host,
+                "value": AUREMAIL_DKIM_PUBLIC_KEY,
+                "display_value": AUREMAIL_DKIM_PUBLIC_KEY or "GERAR CHAVE DKIM POR DOMÍNIO NO SERVIDOR E PREENCHER/INTEGRAR DEPOIS",
+                "copy_value": AUREMAIL_DKIM_PUBLIC_KEY or "",
+                "ttl": AUREMAIL_DNS_TTL,
+                "required": has_dkim_key,
+            },
+        ]
+    )
 
     return records
 
 
 def build_dns_setup_payload(domain: Dominio) -> dict:
     domain_name = domain.name
-    app_host = build_app_host(domain_name)
     mail_host = build_mail_host(domain_name)
 
     warnings: list[str] = []
 
-    if not AUREMAIL_PUBLIC_IP:
+    if not AUREMAIL_MAIL_SERVER_MX_HOST:
+        warnings.append(
+            "AUREMAIL_MAIL_SERVER_MX_HOST não está configurado. "
+            "No modo SaaS, o ideal é usar um hostname fixo seu, por exemplo mail.auremail.com."
+        )
+
+    if should_customer_create_mail_a(domain_name) and not AUREMAIL_PUBLIC_IP:
         warnings.append(
             "A variável AUREMAIL_PUBLIC_IP ainda não está configurada no backend. "
-            "Sem ela, os registros A ficam incompletos."
+            "Sem ela, o registro A do host de e-mail fica incompleto."
         )
 
     if not AUREMAIL_DKIM_PUBLIC_KEY:
         warnings.append(
             "A variável AUREMAIL_DKIM_PUBLIC_KEY ainda está vazia. "
-            "Você vai preencher isso depois de gerar a chave pública DKIM no servidor de e-mail."
+            "Para multi-domínio, o ideal é gerar a chave DKIM por domínio no servidor e integrar isso depois."
+        )
+
+    if AUREMAIL_PANEL_PUBLIC_HOST:
+        warnings.append(
+            f"O painel web do AureMail fica em {AUREMAIL_PANEL_PUBLIC_HOST}. "
+            "Esse host não precisa entrar no DNS do cliente."
         )
 
     return {
@@ -285,21 +312,21 @@ def build_dns_setup_payload(domain: Dominio) -> dict:
         "domain": serialize_domain(domain),
         "generated": {
             "public_ip": AUREMAIL_PUBLIC_IP or None,
-            "app_subdomain": AUREMAIL_APP_SUBDOMAIN or "@",
-            "mail_subdomain": AUREMAIL_MAIL_SUBDOMAIN or "@",
-            "app_host": app_host,
             "mail_host": mail_host,
+            "mail_server_mx_host": AUREMAIL_MAIL_SERVER_MX_HOST or None,
+            "panel_public_host": AUREMAIL_PANEL_PUBLIC_HOST or None,
             "dkim_selector": AUREMAIL_DKIM_SELECTOR,
             "dmarc_report_email": build_dmarc_email(domain_name),
+            "mail_a_required_in_customer_dns": should_customer_create_mail_a(domain_name),
         },
         "records": build_dns_records(domain_name),
         "warnings": warnings,
         "steps": [
-            "No provedor DNS do domínio, crie exatamente os registros mostrados na tabela.",
-            "Se o domínio estiver no Registro.br, use a área de Zona DNS ou de endereçamento do domínio.",
-            "O registro PTR do IP da VPS não fica na zona DNS do domínio. Ele é configurado no painel da VPS.",
+            "Cadastre o domínio na plataforma.",
+            "A plataforma provisiona esse domínio no servidor de e-mail automaticamente.",
+            "No provedor DNS do cliente, crie exatamente os registros mostrados na tabela.",
+            "O registro PTR do IP da VPS não fica na zona DNS do cliente; ele é configurado no painel da VPS.",
             "Depois de salvar os registros, aguarde a propagação DNS e clique em Verificar DNS.",
-            "Quando os registros obrigatórios estiverem corretos, siga para a criação das caixas de e-mail.",
         ],
     }
 
@@ -404,10 +431,26 @@ def create_domain(
         db.rollback()
         raise HTTPException(status_code=409, detail="Esse domínio já está cadastrado.")
 
+    stalwart = get_stalwart_client()
+    provisioning = {"enabled": stalwart.enabled, "status": "skipped"}
+
+    if stalwart.enabled:
+        try:
+            stalwart.create_domain(
+                domain_name=domain.name,
+                description=f"Empresa {current_user.empresa_id} - {domain.name}",
+            )
+            provisioning["status"] = "created"
+        except StalwartProvisioningError as exc:
+            db.delete(domain)
+            db.commit()
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
     return {
         "success": True,
         "message": "Domínio cadastrado com sucesso.",
         "item": serialize_domain(domain),
+        "provisioning": provisioning,
     }
 
 
@@ -425,7 +468,17 @@ def update_domain(
         domain_name = normalize_domain_name(data.name)
         if not validate_domain_name(domain_name):
             raise HTTPException(status_code=400, detail="Informe um domínio válido.")
-        domain.name = domain_name
+        if domain_name != domain.name and count_mailboxes_for_domain(db, domain.id) > 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Não é permitido renomear um domínio que já possui caixas criadas.",
+            )
+        if domain_name != domain.name:
+            raise HTTPException(
+                status_code=400,
+                detail="Para evitar inconsistência no servidor de e-mail, o rename de domínio foi bloqueado. "
+                "Cadastre o novo domínio e migre as caixas.",
+            )
 
     if data.status is not None:
         domain.status = normalize_status(data.status)
@@ -490,7 +543,22 @@ def delete_domain(
 ):
     domain = get_domain_for_user(db, domain_id, current_user.empresa_id)
     was_primary = bool(domain.is_primary)
+
+    if count_mailboxes_for_domain(db, domain.id) > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Remova as caixas desse domínio antes de excluir o domínio.",
+        )
+
     deleted_item = serialize_domain(domain)
+    domain_name = domain.name
+
+    stalwart = get_stalwart_client()
+    if stalwart.enabled:
+        try:
+            stalwart.delete_domain(domain_name)
+        except StalwartProvisioningError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     db.delete(domain)
     db.flush()

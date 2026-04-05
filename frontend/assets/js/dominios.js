@@ -311,6 +311,64 @@
     setPageMessage("", "info");
   }
 
+  // --- Função showToast Atualizada para as cores do ChatGPT ---
+  function showToast(message, tone = "default") {
+    const toast = document.createElement("div");
+    toast.textContent = message;
+
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+
+    const colors = {
+      default: isDark
+        ? { bg: "#2f2f2f", text: "#ececec", border: "rgba(255,255,255,0.1)" }
+        : { bg: "#111827", text: "#ffffff", border: "transparent" },
+
+      success: isDark
+        ? { bg: "#171717", text: "#10a37f", border: "rgba(16, 163, 127, 0.3)" }
+        : { bg: "#065f46", text: "#ffffff", border: "transparent" },
+
+      danger: isDark
+        ? { bg: "#171717", text: "#ef4444", border: "rgba(239, 68, 68, 0.3)" }
+        : { bg: "#7f1d1d", text: "#ffffff", border: "transparent" }
+    };
+
+    const palette = colors[tone] || colors.default;
+
+    Object.assign(toast.style, {
+      position: "fixed",
+      top: "20px",
+      right: "20px",
+      zIndex: "9999",
+      padding: "14px 16px",
+      borderRadius: "12px",
+      background: palette.bg,
+      color: palette.text,
+      border: `1px solid ${palette.border}`,
+      fontFamily: "Inter, sans-serif",
+      fontSize: "14px",
+      fontWeight: "600",
+      boxShadow: isDark
+        ? "0 20px 40px rgba(0,0,0,0.45)"
+        : "0 10px 25px rgba(0,0,0,0.12)",
+      opacity: "0",
+      transform: "translateY(-8px)",
+      transition: "all .22s ease"
+    });
+
+    document.body.appendChild(toast);
+
+    requestAnimationFrame(() => {
+      toast.style.opacity = "1";
+      toast.style.transform = "translateY(0)";
+    });
+
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transform = "translateY(-8px)";
+      setTimeout(() => toast.remove(), 220);
+    }, 2200);
+  }
+
   function openHelp(topic) {
     const data = HELP_TOPICS[topic];
     if (!data) return;

@@ -10,6 +10,7 @@ from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from backend.database import get_db
+from backend.integrations.imap_client import ImapSyncError, RemoteMessage, get_imap_client
 from backend.integrations.smtp_client import SmtpDeliveryError, get_smtp_client
 from backend.models import (
     CaixaEmail,
@@ -22,9 +23,7 @@ from backend.models import (
 from backend.routers.webmail_auth import get_current_mail_actor
 from backend.utils.crypto import SecretCryptoError, decrypt_secret
 
-
 router = APIRouter(prefix="/api/webmail", tags=["Webmail"])
-
 
 DEFAULT_FOLDERS = {
     "inbox": "Caixa de entrada",
@@ -354,6 +353,114 @@ def save_outbound_message(
     return link
 
 
+def get_existing_link_by_message_id(
+    db: Session,
+    *,
+    mailbox_id: int,
+    message_id_header: str,
+) -> CaixaMensagem | None:
+    return (
+        db.query(CaixaMensagem)
+        .join(Mensagem, CaixaMensagem.mensagem_id == Mensagem.id)
+        .filter(
+            CaixaMensagem.caixa_email_id == mailbox_id,
+            Mensagem.message_id_header == message_id_header,
+        )
+        .first()
+    )
+
+
+def save_inbound_message(
+    *,
+    db: Session,
+    mailbox: CaixaEmail,
+    inbox_folder: Pasta,
+    remote: RemoteMessage,
+) -> bool:
+    existing_link = get_existing_link_by_message_id(
+        db,
+        mailbox_id=mailbox.id,
+        message_id_header=remote.message_id_header,
+    )
+    if existing_link:
+        return False
+
+    mensagem = Mensagem(
+        empresa_id=mailbox.empresa_id,
+        direction="inbound",
+        message_id_header=remote.message_id_header,
+        from_name=remote.from_name,
+        from_email=remote.from_email,
+        to_email=remote.to_email,
+        cc_email=remote.cc_email,
+        subject=remote.subject,
+        preview=remote.preview,
+        body_text=remote.body_text,
+        body_html=remote.body_html,
+        raw_source=remote.raw_source,
+        sent_at=remote.sent_at,
+    )
+    db.add(mensagem)
+    db.flush()
+
+    link = CaixaMensagem(
+        caixa_email_id=mailbox.id,
+        mensagem_id=mensagem.id,
+        pasta_id=inbox_folder.id,
+        is_read=bool(remote.is_read),
+        is_starred=False,
+        is_deleted=False,
+    )
+    db.add(link)
+    db.flush()
+    return True
+
+
+def sync_mailbox_inbox(
+    *,
+    db: Session,
+    mailbox: CaixaEmail,
+) -> dict[str, int]:
+    changed = ensure_default_folders(db, mailbox)
+    folder_map = get_folder_map(db, mailbox.id)
+    inbox_folder = folder_map.get("inbox")
+
+    if not inbox_folder:
+        raise HTTPException(status_code=500, detail="Pasta de entrada não encontrada.")
+
+    smtp_password_enc = getattr(mailbox, "smtp_password_enc", None)
+    if not smtp_password_enc:
+        raise HTTPException(
+            status_code=500,
+            detail="A caixa não possui senha criptografada para sincronização IMAP. Redefina a senha da caixa.",
+        )
+
+    password = decrypt_secret(smtp_password_enc)
+    imap_client = get_imap_client()
+    remote_messages = imap_client.fetch_inbox_messages(
+        email_address=mailbox.email,
+        password=password,
+    )
+
+    created = 0
+    for remote in remote_messages:
+        if save_inbound_message(
+            db=db,
+            mailbox=mailbox,
+            inbox_folder=inbox_folder,
+            remote=remote,
+        ):
+            created += 1
+
+    if changed or created:
+        db.commit()
+
+    return {
+        "synced": len(remote_messages),
+        "created": created,
+    }
+
+
 @router.get("/context")
 def webmail_context(
     dominio_id: int | None = Query(default=None),
@@ -457,11 +564,42 @@ def webmail_context(
     }
 
 
+@router.post("/mailboxes/{mailbox_id}/sync")
+def sync_inbox_endpoint(
+    mailbox_id: int,
+    actor: dict[str, Any] = Depends(get_current_mail_actor),
+    db: Session = Depends(get_db),
+):
+    mailbox = get_accessible_mailbox(
+        db,
+        actor=actor,
+        mailbox_id=mailbox_id,
+        only_active=True,
+    )
+
+    try:
+        result = sync_mailbox_inbox(db=db, mailbox=mailbox)
+        return {
+            "success": True,
+            "message": "Inbox sincronizada com sucesso.",
+            "mailbox": serialize_mailbox(mailbox),
+            "stats": result,
+            "folder_counts": build_folder_counts(db, mailbox.id),
+        }
+    except SecretCryptoError as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except ImapSyncError as exc:
+        db.rollback()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @router.get("/mailboxes/{mailbox_id}/messages")
 def list_messages(
     mailbox_id: int,
     folder: str = Query(default="inbox"),
     q: str | None = Query(default=None),
+    sync: bool = Query(default=True),
     actor: dict[str, Any] = Depends(get_current_mail_actor),
     db: Session = Depends(get_db),
 ):
@@ -479,6 +617,16 @@ def list_messages(
     changed = ensure_default_folders(db, mailbox)
     if changed:
         db.commit()
+
+    if folder_slug == "inbox" and sync:
+        try:
+            sync_mailbox_inbox(db=db, mailbox=mailbox)
+        except SecretCryptoError as exc:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        except ImapSyncError as exc:
+            db.rollback()
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     query = (
         db.query(CaixaMensagem)

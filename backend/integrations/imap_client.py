@@ -3,6 +3,7 @@ from __future__ import annotations
 import imaplib
 import os
 import re
+import ssl
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email import policy
@@ -164,10 +165,17 @@ class AureMailImapClient:
         self.mailbox_name = (os.getenv("AUREMAIL_IMAP_INBOX_NAME", "INBOX") or "INBOX").strip()
         self.sync_limit = int((os.getenv("AUREMAIL_IMAP_SYNC_LIMIT", "30") or "30").strip())
         self.use_ssl = (os.getenv("AUREMAIL_IMAP_SSL", "true") or "true").strip().lower() == "true"
+        self.use_starttls = (os.getenv("AUREMAIL_IMAP_STARTTLS", "true") or "true").strip().lower() == "true"
+        self.verify_ssl = (os.getenv("AUREMAIL_IMAP_VERIFY_SSL", "true") or "true").strip().lower() == "true"
 
     def ensure_enabled(self) -> None:
         if not self.host:
             raise ImapSyncError("AUREMAIL_IMAP_HOST não configurado no .env.")
+
+    def _ssl_context(self):
+        if self.verify_ssl:
+            return ssl.create_default_context()
+        return ssl._create_unverified_context()  # noqa: S323
 
     def _connect(self):
         self.ensure_enabled()
@@ -175,13 +183,31 @@ class AureMailImapClient:
 
         try:
             if self.use_ssl:
-                return imaplib.IMAP4_SSL(self.host, self.port, timeout=self.timeout)
+                return imaplib.IMAP4_SSL(
+                    self.host,
+                    self.port,
+                    timeout=self.timeout,
+                    ssl_context=self._ssl_context(),
+                )
+
             client = imaplib.IMAP4(self.host, self.port, timeout=self.timeout)
-            try:
-                client.starttls()
-            except Exception:
-                pass
+
+            if self.use_starttls:
+                try:
+                    status, _ = client.starttls(ssl_context=self._ssl_context())
+                    if status != "OK":
+                        raise ImapSyncError("Falha ao iniciar STARTTLS no IMAP.")
+                except Exception as exc:
+                    try:
+                        client.logout()
+                    except Exception:
+                        pass
+                    raise ImapSyncError(f"Falha no STARTTLS do IMAP: {exc}") from exc
+
             return client
+
+        except ImapSyncError:
+            raise
         except Exception as exc:
             raise ImapSyncError(f"Não foi possível conectar ao IMAP: {exc}") from exc
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 import secrets
 
@@ -13,6 +15,7 @@ from backend.integrations.stalwart_client import (
 )
 from backend.models import CaixaEmail, Dominio, Pasta, UsuarioPlataforma
 from backend.routers.auth import get_current_user, hash_password
+from backend.utils.crypto import SecretCryptoError, encrypt_secret
 
 
 router = APIRouter(prefix="/api/caixas-email", tags=["Caixas de e-mail"])
@@ -118,15 +121,23 @@ def get_mailbox_for_user(db: Session, mailbox_id: int, empresa_id: int) -> Caixa
 
 
 def ensure_default_folders(db: Session, mailbox: CaixaEmail) -> None:
+    existing = {
+        row.slug
+        for row in db.query(Pasta.slug).filter(Pasta.caixa_email_id == mailbox.id).all()
+    }
+
     for folder_name, slug in DEFAULT_FOLDERS:
-        db.add(
-            Pasta(
-                caixa_email_id=mailbox.id,
-                name=folder_name,
-                slug=slug,
-                system_flag=True,
+        if slug not in existing:
+            db.add(
+                Pasta(
+                    caixa_email_id=mailbox.id,
+                    name=folder_name,
+                    slug=slug,
+                    system_flag=True,
+                )
             )
-        )
+
+    db.flush()
 
 
 def quota_mb_to_bytes(value: int) -> int:
@@ -145,7 +156,11 @@ def list_mailboxes(
         .order_by(CaixaEmail.is_active.desc(), CaixaEmail.created_at.asc(), CaixaEmail.id.asc())
         .all()
     )
-    return {"success": True, "items": [serialize_mailbox(item) for item in items], "count": len(items)}
+    return {
+        "success": True,
+        "items": [serialize_mailbox(item) for item in items],
+        "count": len(items),
+    }
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -155,6 +170,7 @@ def create_mailbox(
     db: Session = Depends(get_db),
 ):
     domain = get_domain_for_user(db, data.dominio_id, current_user.empresa_id)
+
     local_part = normalize_local_part(data.local_part)
     if not validate_local_part(local_part):
         raise HTTPException(
@@ -166,6 +182,11 @@ def create_mailbox(
     display_name = normalize_display_name(data.display_name)
     plain_password, password_hash = build_mailbox_password(email, data.password)
 
+    try:
+        smtp_password_enc = encrypt_secret(plain_password)
+    except SecretCryptoError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
     mailbox = CaixaEmail(
         empresa_id=current_user.empresa_id,
         dominio_id=domain.id,
@@ -173,6 +194,7 @@ def create_mailbox(
         email=email,
         display_name=display_name,
         password_hash=password_hash,
+        smtp_password_enc=smtp_password_enc,
         quota_mb=data.quota_mb,
         is_admin=bool(data.is_admin),
         is_active=bool(data.is_active),
@@ -180,6 +202,9 @@ def create_mailbox(
     db.add(mailbox)
 
     try:
+        db.flush()
+        ensure_default_folders(db, mailbox)
+
         client = get_stalwart_client()
         if client.enabled:
             client.create_mailbox(
@@ -190,8 +215,7 @@ def create_mailbox(
                 quota_bytes=quota_mb_to_bytes(data.quota_mb),
                 is_enabled=bool(data.is_active),
             )
-        db.flush()
-        ensure_default_folders(db, mailbox)
+
         db.commit()
         db.refresh(mailbox)
     except IntegrityError:
@@ -259,6 +283,7 @@ def update_mailbox(
                 quota_bytes=quota_mb_to_bytes(mailbox.quota_mb),
                 is_active=bool(mailbox.is_active),
             )
+
         db.commit()
         db.refresh(mailbox)
     except IntegrityError:
@@ -284,17 +309,23 @@ def set_mailbox_password(
 ):
     mailbox = get_mailbox_for_user(db, mailbox_id, current_user.empresa_id)
     new_password = (data.password or "").strip()
+
     if len(new_password) < 8:
         raise HTTPException(status_code=400, detail="A senha precisa ter pelo menos 8 caracteres.")
 
-    mailbox.password_hash = hash_password(new_password)
-
     try:
+        mailbox.password_hash = hash_password(new_password)
+        mailbox.smtp_password_enc = encrypt_secret(new_password)
+
         client = get_stalwart_client()
         if client.enabled:
             client.update_mailbox_by_email(mailbox.email, password=new_password)
+
         db.commit()
         db.refresh(mailbox)
+    except SecretCryptoError as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     except StalwartProvisioningError as exc:
         db.rollback()
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -319,6 +350,7 @@ def delete_mailbox(
         client = get_stalwart_client()
         if client.enabled:
             client.delete_mailbox_by_email(mailbox.email)
+
         db.delete(mailbox)
         db.commit()
     except StalwartProvisioningError as exc:

@@ -126,6 +126,7 @@ class CaixaEmail(Base):
 
     display_name = Column(String(150), nullable=True)
     password_hash = Column(String(255), nullable=False)
+    smtp_password_enc = Column(Text, nullable=True)
 
     quota_mb = Column(Integer, nullable=False, server_default=text("2048"))
     is_admin = Column(Boolean, nullable=False, server_default=text("false"))
@@ -153,6 +154,7 @@ class CaixaEmail(Base):
     )
 
 
+    
 class Pasta(Base):
     __tablename__ = "pastas"
     __table_args__ = (

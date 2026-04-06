@@ -25,7 +25,9 @@ class StalwartClient:
         self.api_user = (os.getenv("AUREMAIL_MAIL_SERVER_API_USER", "") or "").strip()
         self.api_password = (os.getenv("AUREMAIL_MAIL_SERVER_API_PASSWORD", "") or "").strip()
         self.timeout = int((os.getenv("AUREMAIL_MAIL_SERVER_TIMEOUT", "15") or "15").strip())
-        self.verify_ssl = (os.getenv("AUREMAIL_MAIL_SERVER_VERIFY_SSL", "false") or "false").strip().lower() == "true"
+        self.verify_ssl = (
+            (os.getenv("AUREMAIL_MAIL_SERVER_VERIFY_SSL", "false") or "false").strip().lower() == "true"
+        )
 
     @property
     def enabled(self) -> bool:
@@ -50,11 +52,13 @@ class StalwartClient:
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
+
         if self.api_token:
             headers["Authorization"] = f"Bearer {self.api_token}"
         elif self.api_user and self.api_password:
             raw = f"{self.api_user}:{self.api_password}".encode("utf-8")
             headers["Authorization"] = "Basic " + base64.b64encode(raw).decode("utf-8")
+
         return headers
 
     def _ssl_context(self):
@@ -65,6 +69,7 @@ class StalwartClient:
     def _request(self, method: str, path: str, payload: Any | None = None) -> Any:
         url = self._build_url(path)
         data = json.dumps(payload).encode("utf-8") if payload is not None else None
+
         req = urllib.request.Request(
             url=url,
             data=data,
@@ -83,6 +88,7 @@ class StalwartClient:
                 detail = parsed.get("detail") or parsed.get("message") or body
             except Exception:
                 detail = str(exc)
+
             raise StalwartProvisioningError(
                 f"Falha ao falar com o servidor de e-mail ({exc.code}): {detail}"
             ) from exc
@@ -93,27 +99,77 @@ class StalwartClient:
 
         if not raw:
             return None
+
         try:
             parsed = json.loads(raw)
         except Exception:
             return raw
+
         return parsed.get("data", parsed)
+
+    def _extract_created_id(self, value: Any) -> int:
+        """Extrai um ID de criação da resposta da API.
+
+        O Stalwart pode retornar:
+        - um inteiro/string direto
+        - um dict com {"id": ...}
+        - um dict aninhado com {"data": {"id": ...}}
+        """
+
+        if value is None:
+            raise StalwartProvisioningError(
+                "O servidor de e-mail não retornou ID ao criar o principal."
+            )
+
+        if isinstance(value, dict):
+            direct_id = value.get("id")
+            if direct_id is not None:
+                return int(direct_id)
+
+            nested = value.get("data")
+            if isinstance(nested, dict):
+                nested_id = nested.get("id")
+                if nested_id is not None:
+                    return int(nested_id)
+
+            items = value.get("items")
+            if isinstance(items, list) and items:
+                first = items[0]
+                if isinstance(first, dict) and first.get("id") is not None:
+                    return int(first["id"])
+
+            raise StalwartProvisioningError(
+                f"Resposta inesperada do servidor ao criar principal: {value}"
+            )
+
+        return int(value)
 
     def list_principals(self, principal_type: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
         page = 0
+
         while True:
             query: dict[str, Any] = {"page": page, "limit": limit}
             if principal_type:
                 query["types"] = principal_type
+
             path = "/principal?" + urllib.parse.urlencode(query)
             payload = self._request("GET", path) or {}
+
+            if isinstance(payload, list):
+                batch = [item for item in payload if isinstance(item, dict)]
+                items.extend(batch)
+                break
+
             batch = list(payload.get("items") or [])
             items.extend(batch)
+
             total = int(payload.get("total") or len(items))
             if len(items) >= total or not batch:
                 break
+
             page += 1
+
         return items
 
     @staticmethod
@@ -123,29 +179,40 @@ class StalwartClient:
     @staticmethod
     def _emails_from_principal(item: dict[str, Any]) -> list[str]:
         emails = item.get("emails") or []
+
         if isinstance(emails, str):
             email = StalwartClient._normalize_email(emails)
             return [email] if email else []
+
         if isinstance(emails, list):
-            return [StalwartClient._normalize_email(email) for email in emails if str(email).strip()]
+            return [
+                StalwartClient._normalize_email(email)
+                for email in emails
+                if str(email).strip()
+            ]
+
         return []
 
     def find_principal_by_name(self, name: str, principal_type: str | None = None) -> dict[str, Any] | None:
         wanted = str(name or "").strip().lower()
         if not wanted:
             return None
+
         for item in self.list_principals(principal_type=principal_type):
             if str(item.get("name") or "").strip().lower() == wanted:
                 return item
+
         return None
 
     def find_principal_by_email(self, email: str) -> dict[str, Any] | None:
         wanted = self._normalize_email(email)
         if not wanted:
             return None
+
         for item in self.list_principals(principal_type="individual"):
             if wanted in self._emails_from_principal(item):
                 return item
+
         return None
 
     def create_domain(self, domain_name: str, description: str | None = None) -> int:
@@ -170,12 +237,14 @@ class StalwartClient:
             "disabledPermissions": [],
             "externalMembers": [],
         }
-        created_id = self._request("POST", "/principal", payload)
-        return int(created_id)
+
+        created = self._request("POST", "/principal", payload)
+        return self._extract_created_id(created)
 
     def rename_domain(self, old_domain_name: str, new_domain_name: str) -> None:
         old_domain_name = str(old_domain_name or "").strip().lower()
         new_domain_name = str(new_domain_name or "").strip().lower()
+
         if old_domain_name == new_domain_name:
             return
 
@@ -194,6 +263,7 @@ class StalwartClient:
         existing = self.find_principal_by_name(domain_name, principal_type="domain")
         if not existing:
             return
+
         self._request("DELETE", f"/principal/{existing['id']}")
 
     def create_mailbox(
@@ -208,9 +278,12 @@ class StalwartClient:
     ) -> int:
         login_name = str(login_name or "").strip().lower()
         email = self._normalize_email(email)
+
         existing = self.find_principal_by_email(email)
         if existing:
-            raise StalwartProvisioningError(f"A caixa {email} já existe no servidor de e-mail.")
+            raise StalwartProvisioningError(
+                f"A caixa {email} já existe no servidor de e-mail."
+            )
 
         payload = {
             "type": "individual",
@@ -228,10 +301,14 @@ class StalwartClient:
             "disabledPermissions": [],
             "externalMembers": [],
         }
-        created_id = self._request("POST", "/principal", payload)
+
+        created = self._request("POST", "/principal", payload)
+        created_id = self._extract_created_id(created)
+
         if not is_enabled:
             self.update_mailbox_by_email(email, is_active=False)
-        return int(created_id)
+
+        return created_id
 
     def update_mailbox_by_email(
         self,
@@ -246,21 +323,53 @@ class StalwartClient:
     ) -> None:
         existing = self.find_principal_by_email(current_email)
         if not existing:
-            raise StalwartProvisioningError(f"A caixa {current_email} não existe no servidor de e-mail.")
+            raise StalwartProvisioningError(
+                f"A caixa {current_email} não existe no servidor de e-mail."
+            )
 
         operations: list[dict[str, Any]] = []
+
         if new_login_name is not None:
-            operations.append({"action": "set", "field": "name", "value": str(new_login_name).strip().lower()})
+            operations.append({
+                "action": "set",
+                "field": "name",
+                "value": str(new_login_name).strip().lower(),
+            })
+
         if new_email is not None:
-            operations.append({"action": "set", "field": "emails", "value": [self._normalize_email(new_email)]})
+            operations.append({
+                "action": "set",
+                "field": "emails",
+                "value": [self._normalize_email(new_email)],
+            })
+
         if display_name is not None:
-            operations.append({"action": "set", "field": "description", "value": display_name})
+            operations.append({
+                "action": "set",
+                "field": "description",
+                "value": display_name,
+            })
+
         if quota_bytes is not None:
-            operations.append({"action": "set", "field": "quota", "value": int(quota_bytes)})
+            operations.append({
+                "action": "set",
+                "field": "quota",
+                "value": int(quota_bytes),
+            })
+
         if password is not None:
-            operations.append({"action": "set", "field": "secrets", "value": [password]})
+            operations.append({
+                "action": "set",
+                "field": "secrets",
+                "value": [password],
+            })
+
         if is_active is not None:
-            operations.append({"action": "set", "field": "isEnabled", "value": bool(is_active)})
+            operations.append({
+                "action": "set",
+                "field": "isEnabled",
+                "value": bool(is_active),
+            })
 
         if operations:
             self._request("PATCH", f"/principal/{existing['id']}", operations)
@@ -269,9 +378,15 @@ class StalwartClient:
         existing = self.find_principal_by_email(email)
         if not existing:
             return
+
         self._request("DELETE", f"/principal/{existing['id']}")
 
-    def create_dkim_signature(self, domain_name: str, selector: str | None = None, algorithm: str = "Ed25519"):
+    def create_dkim_signature(
+        self,
+        domain_name: str,
+        selector: str | None = None,
+        algorithm: str = "Ed25519",
+    ):
         payload = {
             "id": None,
             "algorithm": algorithm,

@@ -7,11 +7,11 @@ from fastapi.staticfiles import StaticFiles
 from backend.database import engine
 from backend.models import Base
 from backend.routers.auth import is_authenticated
-from backend.routers.criar_empresa import router as criar_empresa_router
-from backend.routers.login import router as login_router
-from backend.routers.dominios import router as dominios_router
-from backend.routers.webmail import router as webmail_router
 from backend.routers.caixas_email import router as caixas_email_router
+from backend.routers.criar_empresa import router as criar_empresa_router
+from backend.routers.dominios import router as dominios_router
+from backend.routers.login import router as login_router
+from backend.routers.webmail import router as webmail_router
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
@@ -26,7 +26,6 @@ Base.metadata.create_all(bind=engine)
 
 if ASSETS_DIR.exists():
     app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
-
 
 app.include_router(login_router)
 app.include_router(criar_empresa_router)

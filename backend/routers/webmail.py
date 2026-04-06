@@ -9,6 +9,7 @@ from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from backend.database import get_db
+from backend.integrations.smtp_client import SmtpDeliveryError, get_smtp_client
 from backend.models import (
     CaixaEmail,
     CaixaMensagem,
@@ -19,6 +20,7 @@ from backend.models import (
     UsuarioPlataforma,
 )
 from backend.routers.auth import get_current_user
+from backend.utils.crypto import SecretCryptoError, decrypt_secret
 
 
 router = APIRouter(prefix="/api/webmail", tags=["Webmail"])
@@ -238,7 +240,6 @@ def resolve_selected_context(
     selected_domain = domain_map.get(requested_domain_id) if requested_domain_id else None
     selected_mailbox = mailbox_map.get(requested_mailbox_id) if requested_mailbox_id else None
 
-    # Se a caixa foi escolhida, ela manda no domínio.
     if selected_mailbox:
         selected_domain = domain_map.get(selected_mailbox.dominio_id)
 
@@ -284,6 +285,49 @@ def get_link_for_mailbox(db: Session, mailbox_id: int, message_id: int) -> Caixa
     if not link:
         raise HTTPException(status_code=404, detail="Mensagem não encontrada.")
 
+    return link
+
+
+def save_outbound_message(
+    *,
+    db: Session,
+    empresa_id: int,
+    mailbox: CaixaEmail,
+    folder: Pasta,
+    to_email: str,
+    subject: str | None,
+    body: str | None,
+    message_id_header: str,
+    sent_at: datetime | None,
+) -> CaixaMensagem:
+    mensagem = Mensagem(
+        empresa_id=empresa_id,
+        direction="outbound",
+        message_id_header=message_id_header,
+        from_name=mailbox.display_name or mailbox.local_part,
+        from_email=mailbox.email,
+        to_email=to_email,
+        subject=subject,
+        preview=preview_from_body(body),
+        body_text=body,
+        body_html=None,
+        raw_source=None,
+        sent_at=sent_at,
+    )
+
+    db.add(mensagem)
+    db.flush()
+
+    link = CaixaMensagem(
+        caixa_email_id=mailbox.id,
+        mensagem_id=mensagem.id,
+        pasta_id=folder.id,
+        is_read=True,
+        is_starred=False,
+        is_deleted=(folder.slug == "trash"),
+    )
+    db.add(link)
+    db.flush()
     return link
 
 
@@ -485,6 +529,9 @@ def move_message(
     )
 
     changed = ensure_default_folders(db, mailbox)
+    if changed:
+        db.commit()
+
     folder_map = get_folder_map(db, mailbox.id)
 
     target_slug = (data.target_folder or "").strip().lower()
@@ -539,42 +586,72 @@ def compose_message(
     if not folder:
         raise HTTPException(status_code=400, detail="Pasta de envio não encontrada.")
 
-    now = datetime.now(timezone.utc)
+    try:
+        if data.save_as_draft:
+            message_id_header = f"<auremail-draft-{uuid4().hex}@local>"
 
-    mensagem = Mensagem(
-        empresa_id=current_user.empresa_id,
-        direction="outbound",
-        message_id_header=f"<auremail-{uuid4().hex}@local>",
-        from_name=mailbox.display_name or mailbox.local_part,
-        from_email=mailbox.email,
-        to_email=to_email,
-        subject=subject,
-        preview=preview_from_body(body),
-        body_text=body,
-        body_html=None,
-        raw_source=None,
-        sent_at=None if data.save_as_draft else now,
-    )
+            link = save_outbound_message(
+                db=db,
+                empresa_id=current_user.empresa_id,
+                mailbox=mailbox,
+                folder=folder,
+                to_email=to_email,
+                subject=subject,
+                body=body,
+                message_id_header=message_id_header,
+                sent_at=None,
+            )
 
-    db.add(mensagem)
-    db.flush()
+            db.commit()
+            db.refresh(link)
 
-    link = CaixaMensagem(
-        caixa_email_id=mailbox.id,
-        mensagem_id=mensagem.id,
-        pasta_id=folder.id,
-        is_read=True,
-        is_starred=False,
-        is_deleted=(folder_slug == "trash"),
-    )
+            return {
+                "success": True,
+                "message": "Rascunho salvo com sucesso.",
+                "item": serialize_message_detail(link),
+                "folder_counts": build_folder_counts(db, mailbox.id),
+            }
 
-    db.add(link)
-    db.commit()
-    db.refresh(link)
+        smtp_password = decrypt_secret(mailbox.smtp_password_enc)
+        smtp_client = get_smtp_client()
 
-    return {
-        "success": True,
-        "message": "Rascunho salvo com sucesso." if data.save_as_draft else "E-mail salvo em enviados.",
-        "item": serialize_message_detail(link),
-        "folder_counts": build_folder_counts(db, mailbox.id),
-    }
+        message_id_header = smtp_client.send_message(
+            username=mailbox.email,
+            password=smtp_password,
+            from_email=mailbox.email,
+            to_email=to_email,
+            subject=subject,
+            body_text=body,
+            from_name=mailbox.display_name or mailbox.local_part,
+        )
+
+        now = datetime.now(timezone.utc)
+
+        link = save_outbound_message(
+            db=db,
+            empresa_id=current_user.empresa_id,
+            mailbox=mailbox,
+            folder=folder,
+            to_email=to_email,
+            subject=subject,
+            body=body,
+            message_id_header=message_id_header,
+            sent_at=now,
+        )
+
+        db.commit()
+        db.refresh(link)
+
+        return {
+            "success": True,
+            "message": "E-mail enviado com sucesso.",
+            "item": serialize_message_detail(link),
+            "folder_counts": build_folder_counts(db, mailbox.id),
+        }
+
+    except SecretCryptoError as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except SmtpDeliveryError as exc:
+        db.rollback()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc

@@ -93,7 +93,7 @@
     }
 
     if (!password) {
-      showFieldError(passwordInput, passwordError, "Informe a senha.");
+      showFieldError(passwordInput, passwordError, "Informe a senha da caixa.");
       hasError = true;
     }
 
@@ -125,7 +125,7 @@
 
       setTimeout(() => {
         window.location.href = "/mail";
-      }, 500);
+      }, 300);
     } catch (error) {
       setMessage(error.message || "Não foi possível entrar no webmail.", "error");
       setLoading(false);

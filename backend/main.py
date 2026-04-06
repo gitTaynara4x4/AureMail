@@ -47,8 +47,12 @@ def has_panel_access(request: Request) -> bool:
     return is_authenticated(request)
 
 
+def has_webmail_access(request: Request) -> bool:
+    return is_webmail_authenticated(request)
+
+
 def has_mail_access(request: Request) -> bool:
-    return is_authenticated(request) or is_webmail_authenticated(request)
+    return has_panel_access(request) or has_webmail_access(request)
 
 
 def serve_page(
@@ -82,8 +86,10 @@ def serve_page(
 def root(request: Request):
     if has_panel_access(request):
         return RedirectResponse(url="/app")
-    if is_webmail_authenticated(request):
+
+    if has_webmail_access(request):
         return RedirectResponse(url="/mail")
+
     return RedirectResponse(url="/login")
 
 
@@ -93,7 +99,6 @@ def login_page(request: Request):
     return serve_page(
         request=request,
         filename="login.html",
-        require_panel_auth=False,
         redirect_if_panel_logged="/app",
     )
 
@@ -104,7 +109,6 @@ def webmail_login_page(request: Request):
     return serve_page(
         request=request,
         filename="webmail-login.html",
-        require_panel_auth=False,
         redirect_if_mail_logged="/mail",
     )
 
@@ -115,7 +119,6 @@ def criar_empresa_page(request: Request):
     return serve_page(
         request=request,
         filename="criar-empresa.html",
-        require_panel_auth=False,
         redirect_if_panel_logged="/app",
     )
 
@@ -150,16 +153,6 @@ def caixas_email_page(request: Request):
     )
 
 
-@app.get("/mail", include_in_schema=False)
-@app.get("/mail.html", include_in_schema=False)
-def mail_page(request: Request):
-    return serve_page(
-        request=request,
-        filename="mail.html",
-        require_mail_auth=True,
-    )
-
-
 @app.get("/configuracoes", include_in_schema=False)
 @app.get("/configuracoes.html", include_in_schema=False)
 def configuracoes_page(request: Request):
@@ -170,9 +163,19 @@ def configuracoes_page(request: Request):
     )
 
 
+@app.get("/mail", include_in_schema=False)
+@app.get("/mail.html", include_in_schema=False)
+def mail_page(request: Request):
+    return serve_page(
+        request=request,
+        filename="mail.html",
+        require_mail_auth=True,
+    )
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
     favicon_path = ASSETS_DIR / "img" / "fav-icon.png"
     if favicon_path.exists():
-        return FileResponse(favicon_path, media_type="image/png")
-    return RedirectResponse(url="/assets/img/fav-icon.png")
+        return FileResponse(favicon_path)
+    return RedirectResponse(url="/login")

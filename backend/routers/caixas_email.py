@@ -208,7 +208,7 @@ def create_mailbox(
         client = get_stalwart_client()
         if client.enabled:
             client.create_mailbox(
-                login_name=local_part,
+                login_name=email,
                 email=email,
                 password=plain_password,
                 display_name=display_name,
@@ -242,7 +242,6 @@ def update_mailbox(
 ):
     mailbox = get_mailbox_for_user(db, mailbox_id, current_user.empresa_id)
     old_email = mailbox.email
-    old_local_part = mailbox.local_part
 
     if data.dominio_id is not None and int(data.dominio_id) != int(mailbox.dominio_id):
         new_domain = get_domain_for_user(db, data.dominio_id, current_user.empresa_id)
@@ -277,7 +276,7 @@ def update_mailbox(
         if client.enabled:
             client.update_mailbox_by_email(
                 old_email,
-                new_login_name=mailbox.local_part if mailbox.local_part != old_local_part else None,
+                new_login_name=mailbox.email,
                 new_email=mailbox.email if mailbox.email != old_email else None,
                 display_name=mailbox.display_name,
                 quota_bytes=quota_mb_to_bytes(mailbox.quota_mb),
@@ -319,7 +318,11 @@ def set_mailbox_password(
 
         client = get_stalwart_client()
         if client.enabled:
-            client.update_mailbox_by_email(mailbox.email, password=new_password)
+            client.update_mailbox_by_email(
+                mailbox.email,
+                new_login_name=mailbox.email,
+                password=new_password,
+            )
 
         db.commit()
         db.refresh(mailbox)

@@ -24,7 +24,9 @@ SECRET_KEY = os.getenv("AUREMAIL_SECRET_KEY", "troque-essa-chave-em-producao")
 COOKIE_SECURE = os.getenv("AUREMAIL_COOKIE_SECURE", "false").lower() == "true"
 COOKIE_SAMESITE = os.getenv("AUREMAIL_COOKIE_SAMESITE", "lax")
 WEBMAIL_COOKIE_NAME = os.getenv("AUREMAIL_WEBMAIL_COOKIE_NAME", "auremail_webmail_session")
-WEBMAIL_COOKIE_MAX_AGE = int(os.getenv("AUREMAIL_WEBMAIL_COOKIE_MAX_AGE", str(60 * 60 * 24 * 7)))
+WEBMAIL_COOKIE_MAX_AGE = int(
+    os.getenv("AUREMAIL_WEBMAIL_COOKIE_MAX_AGE", str(60 * 60 * 24 * 7))
+)
 
 router = APIRouter(prefix="/api/webmail-auth", tags=["Webmail Auth"])
 
@@ -49,6 +51,21 @@ def _b64url_encode(data: bytes) -> str:
 def _b64url_decode(data: str) -> bytes:
     padding = "=" * (-len(data) % 4)
     return base64.urlsafe_b64decode(data + padding)
+
+
+def serialize_mailbox(mailbox: CaixaEmail) -> dict:
+    return {
+        "id": mailbox.id,
+        "empresa_id": mailbox.empresa_id,
+        "dominio_id": mailbox.dominio_id,
+        "email": mailbox.email,
+        "display_name": mailbox.display_name,
+        "local_part": mailbox.local_part,
+        "quota_mb": mailbox.quota_mb,
+        "is_active": bool(mailbox.is_active),
+        "domain": mailbox.dominio.name if mailbox.dominio else None,
+        "account_type": "mailbox_user",
+    }
 
 
 def build_webmail_session_token(mailbox: CaixaEmail, max_age: int) -> str:
@@ -106,7 +123,11 @@ def decode_webmail_session_token(token: str) -> Optional[dict]:
         return None
 
 
-def set_webmail_login_cookie(response: Response, mailbox: CaixaEmail, remember: bool = False) -> None:
+def set_webmail_login_cookie(
+    response: Response,
+    mailbox: CaixaEmail,
+    remember: bool = False,
+) -> None:
     max_age = WEBMAIL_COOKIE_MAX_AGE if remember else 60 * 60 * 12
     token = build_webmail_session_token(mailbox, max_age=max_age)
 
@@ -203,7 +224,10 @@ def get_current_webmail_mailbox(
     return mailbox
 
 
-def get_current_webmail_mailbox_optional(request: Request, db: Session) -> CaixaEmail | None:
+def get_current_webmail_mailbox_optional(
+    request: Request,
+    db: Session,
+) -> CaixaEmail | None:
     try:
         return get_current_webmail_mailbox(request, db)
     except HTTPException:
@@ -272,18 +296,7 @@ def login_webmail(
     return {
         "success": True,
         "message": "Login do webmail realizado com sucesso.",
-        "mailbox": {
-            "id": mailbox.id,
-            "empresa_id": mailbox.empresa_id,
-            "dominio_id": mailbox.dominio_id,
-            "email": mailbox.email,
-            "display_name": mailbox.display_name,
-            "local_part": mailbox.local_part,
-            "quota_mb": mailbox.quota_mb,
-            "is_active": bool(mailbox.is_active),
-            "domain": mailbox.dominio.name if mailbox.dominio else None,
-            "account_type": "mailbox_user",
-        },
+        "mailbox": serialize_mailbox(mailbox),
         "company": {
             "id": empresa.id,
             "name": empresa.name,
@@ -295,7 +308,10 @@ def login_webmail(
 @router.post("/logout")
 def logout_webmail(response: Response):
     clear_webmail_login_cookie(response)
-    return {"success": True, "message": "Logout do webmail realizado com sucesso."}
+    return {
+        "success": True,
+        "message": "Logout do webmail realizado com sucesso.",
+    }
 
 
 @router.get("/me")
@@ -315,12 +331,12 @@ def webmail_me(
             "email": mailbox.email,
             "is_owner": False,
             "is_active": bool(mailbox.is_active),
+            "account_type": "mailbox_user",
         },
         "company": {
             "id": empresa.id if empresa else None,
             "name": empresa.name if empresa else None,
             "status": empresa.status if empresa else None,
-            "cnpj_cpf": empresa.cnpj_cpf if empresa else None,
         },
         "mailbox": {
             "id": mailbox.id,
@@ -330,7 +346,6 @@ def webmail_me(
             "display_name": mailbox.display_name,
             "local_part": mailbox.local_part,
             "quota_mb": mailbox.quota_mb,
-            "is_admin": bool(mailbox.is_admin),
             "is_active": bool(mailbox.is_active),
             "domain": domain,
             "account_type": "mailbox_user",

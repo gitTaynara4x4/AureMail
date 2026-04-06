@@ -306,7 +306,11 @@ class StalwartClient:
         created_id = self._extract_created_id(created)
 
         if not is_enabled:
-            self.update_mailbox_by_email(email, is_active=False)
+            self.update_mailbox_by_email(
+                email,
+                new_login_name=email,
+                is_active=False,
+            )
 
         return created_id
 
@@ -377,7 +381,9 @@ class StalwartClient:
     def delete_mailbox_by_email(self, email: str) -> None:
         existing = self.find_principal_by_email(email)
         if not existing:
-            return
+            raise StalwartProvisioningError(
+                f"A caixa {email} não foi encontrada no servidor de e-mail."
+            )
 
         self._request("DELETE", f"/principal/{existing['id']}")
 

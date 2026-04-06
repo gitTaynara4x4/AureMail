@@ -1,0 +1,266 @@
+:root {
+  --bg: #f5f7fb;
+  --card: #ffffff;
+  --line: #e5e7eb;
+  --text: #111827;
+  --muted: #6b7280;
+  --primary: #111827;
+  --primary-contrast: #ffffff;
+  --success: #047857;
+  --danger: #dc2626;
+  --warning: #b45309;
+  --shadow: 0 18px 60px rgba(17, 24, 39, 0.10);
+  --radius: 22px;
+}
+
+html[data-theme="dark"] {
+  --bg: #0b1020;
+  --card: #121933;
+  --line: rgba(255,255,255,0.08);
+  --text: #f3f4f6;
+  --muted: #9ca3af;
+  --primary: #f9fafb;
+  --primary-contrast: #0b1020;
+  --success: #34d399;
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(180, 83, 9, 0.10), transparent 25%),
+    radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.10), transparent 20%),
+    var(--bg);
+  color: var(--text);
+}
+
+a {
+  color: inherit;
+}
+
+.webmail-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+}
+
+.webmail-login-shell {
+  width: min(1100px, 100%);
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 24px;
+  align-items: stretch;
+}
+
+.webmail-login-brand,
+.webmail-login-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.webmail-login-brand {
+  padding: 34px;
+}
+
+.brand-badge,
+.mini-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--warning);
+  margin-bottom: 18px;
+}
+
+.webmail-login-brand h1 {
+  margin: 0 0 12px;
+  font-size: clamp(30px, 4vw, 46px);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.webmail-login-brand p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.brand-card-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.brand-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  background: rgba(127, 127, 127, 0.04);
+}
+
+.brand-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.brand-card p {
+  font-size: 14px;
+}
+
+.webmail-login-card {
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.login-card-head h2 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  letter-spacing: -0.03em;
+}
+
+.login-card-head p {
+  margin: 0 0 24px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.field label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.field input {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  padding: 0 14px;
+  outline: none;
+  font-size: 15px;
+}
+
+.field input:focus {
+  border-color: rgba(180, 83, 9, 0.6);
+  box-shadow: 0 0 0 4px rgba(180, 83, 9, 0.08);
+}
+
+.password-wrap {
+  position: relative;
+}
+
+.password-wrap input {
+  padding-right: 92px;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  padding: 0 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.field-error {
+  min-height: 16px;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.remember-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.submit-btn {
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--primary);
+  color: var(--primary-contrast);
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.form-message {
+  min-height: 22px;
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.form-message.success {
+  color: var(--success);
+}
+
+.form-message.error {
+  color: var(--danger);
+}
+
+.form-message.info {
+  color: var(--muted);
+}
+
+.login-footer-links {
+  margin-top: 18px;
+  text-align: center;
+}
+
+.login-footer-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.login-footer-links a:hover {
+  color: var(--text);
+}
+
+@media (max-width: 920px) {
+  .webmail-login-shell {
+    grid-template-columns: 1fr;
+  }
+}

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <script>
+  <script>
     (() => {
       const savedTheme = localStorage.getItem("auremail-theme");
       if (savedTheme === "dark") {
@@ -50,7 +50,7 @@
         <article class="data-card form-card">
           <header class="data-card__header">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-            <h3>Criar Nova Caixa</h3>
+            <h3 id="mailboxFormTitle">Criar Nova Caixa</h3>
           </header>
 
           <div class="card-body">
@@ -89,6 +89,31 @@
               </div>
 
               <div class="field">
+                <label for="mailboxPassword">Senha da Caixa</label>
+                <input
+                  type="password"
+                  id="mailboxPassword"
+                  name="mailboxPassword"
+                  placeholder="Deixe vazio para gerar automaticamente"
+                  maxlength="255"
+                />
+                <small style="display:block; margin-top:6px; color:var(--text-muted); font-size:12px;">
+                  Essa senha será usada pela própria caixa de e-mail. Se deixar vazio, o sistema gera uma senha automática.
+                </small>
+              </div>
+
+              <div class="field">
+                <label for="mailboxConfirmPassword">Confirmar Senha</label>
+                <input
+                  type="password"
+                  id="mailboxConfirmPassword"
+                  name="mailboxConfirmPassword"
+                  placeholder="Repita a senha da caixa"
+                  maxlength="255"
+                />
+              </div>
+
+              <div class="field">
                 <label for="mailboxQuotaMb">Quota / Armazenamento (MB)</label>
                 <input
                   type="number"
@@ -114,7 +139,16 @@
                 Salvar caixa de e-mail
               </button>
 
-              <div class="form-message info" id="mailboxFormMessage"></div>
+              <button
+                type="button"
+                class="btn btn-secondary"
+                id="cancelMailboxEditBtn"
+                style="width:100%; margin-top:10px; display:none;"
+              >
+                Cancelar edição
+              </button>
+
+              <div class="form-message info" id="mailboxFormMessage" style="display:none; margin-top:12px;"></div>
             </form>
           </div>
         </article>
@@ -129,7 +163,7 @@
           </header>
 
           <div class="domain-list" id="mailboxList">
-            <div class="empty-note">Carregando caixas de e-mail...</div>
+            <div class="empty-note">Carregando caixas de e-mail..</div>
           </div>
         </article>
       </section>

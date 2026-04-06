@@ -12,6 +12,10 @@ from backend.routers.criar_empresa import router as criar_empresa_router
 from backend.routers.dominios import router as dominios_router
 from backend.routers.login import router as login_router
 from backend.routers.webmail import router as webmail_router
+from backend.routers.webmail_auth import (
+    is_webmail_authenticated,
+    router as webmail_auth_router,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
@@ -28,6 +32,7 @@ if ASSETS_DIR.exists():
     app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 
 app.include_router(login_router)
+app.include_router(webmail_auth_router)
 app.include_router(criar_empresa_router)
 app.include_router(dominios_router)
 app.include_router(webmail_router)
@@ -38,17 +43,33 @@ def frontend_file(filename: str) -> Path:
     return FRONTEND_DIR / filename
 
 
+def has_panel_access(request: Request) -> bool:
+    return is_authenticated(request)
+
+
+def has_mail_access(request: Request) -> bool:
+    return is_authenticated(request) or is_webmail_authenticated(request)
+
+
 def serve_page(
     request: Request,
     filename: str,
-    require_auth: bool = False,
-    redirect_if_logged: str | None = None,
+    require_panel_auth: bool = False,
+    require_mail_auth: bool = False,
+    redirect_if_panel_logged: str | None = None,
+    redirect_if_mail_logged: str | None = None,
 ):
-    if require_auth and not is_authenticated(request):
+    if require_panel_auth and not has_panel_access(request):
         return RedirectResponse(url="/login")
 
-    if redirect_if_logged and is_authenticated(request):
-        return RedirectResponse(url=redirect_if_logged)
+    if require_mail_auth and not has_mail_access(request):
+        return RedirectResponse(url="/webmail-login")
+
+    if redirect_if_panel_logged and has_panel_access(request):
+        return RedirectResponse(url=redirect_if_panel_logged)
+
+    if redirect_if_mail_logged and has_mail_access(request):
+        return RedirectResponse(url=redirect_if_mail_logged)
 
     file_path = frontend_file(filename)
     if not file_path.exists():
@@ -59,8 +80,10 @@ def serve_page(
 
 @app.get("/", include_in_schema=False)
 def root(request: Request):
-    if is_authenticated(request):
+    if has_panel_access(request):
         return RedirectResponse(url="/app")
+    if is_webmail_authenticated(request):
+        return RedirectResponse(url="/mail")
     return RedirectResponse(url="/login")
 
 
@@ -70,8 +93,19 @@ def login_page(request: Request):
     return serve_page(
         request=request,
         filename="login.html",
-        require_auth=False,
-        redirect_if_logged="/app",
+        require_panel_auth=False,
+        redirect_if_panel_logged="/app",
+    )
+
+
+@app.get("/webmail-login", include_in_schema=False)
+@app.get("/webmail-login.html", include_in_schema=False)
+def webmail_login_page(request: Request):
+    return serve_page(
+        request=request,
+        filename="webmail-login.html",
+        require_panel_auth=False,
+        redirect_if_mail_logged="/mail",
     )
 
 
@@ -81,8 +115,8 @@ def criar_empresa_page(request: Request):
     return serve_page(
         request=request,
         filename="criar-empresa.html",
-        require_auth=False,
-        redirect_if_logged="/app",
+        require_panel_auth=False,
+        redirect_if_panel_logged="/app",
     )
 
 
@@ -92,7 +126,7 @@ def app_page(request: Request):
     return serve_page(
         request=request,
         filename="app.html",
-        require_auth=True,
+        require_panel_auth=True,
     )
 
 
@@ -102,7 +136,7 @@ def dominios_page(request: Request):
     return serve_page(
         request=request,
         filename="dominios.html",
-        require_auth=True,
+        require_panel_auth=True,
     )
 
 
@@ -112,7 +146,7 @@ def caixas_email_page(request: Request):
     return serve_page(
         request=request,
         filename="caixas-email.html",
-        require_auth=True,
+        require_panel_auth=True,
     )
 
 
@@ -122,7 +156,7 @@ def mail_page(request: Request):
     return serve_page(
         request=request,
         filename="mail.html",
-        require_auth=True,
+        require_mail_auth=True,
     )
 
 
@@ -132,7 +166,7 @@ def configuracoes_page(request: Request):
     return serve_page(
         request=request,
         filename="configuracoes.html",
-        require_auth=True,
+        require_panel_auth=True,
     )
 
 

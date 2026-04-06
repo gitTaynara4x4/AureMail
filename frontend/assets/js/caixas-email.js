@@ -10,6 +10,26 @@
     return document.getElementById(id);
   }
 
+  const elements = {
+    form: $("mailboxForm"),
+    formTitle: $("mailboxFormTitle"),
+    domainId: $("mailboxDomainId"),
+    localPart: $("mailboxLocalPart"),
+    displayName: $("mailboxDisplayName"),
+    password: $("mailboxPassword"),
+    confirmPassword: $("mailboxConfirmPassword"),
+    quotaMb: $("mailboxQuotaMb"),
+    isActive: $("mailboxIsActive"),
+    submitBtn: $("createMailboxBtn"),
+    cancelEditBtn: $("cancelMailboxEditBtn"),
+    messageBox: $("mailboxFormMessage"),
+    list: $("mailboxList"),
+    count: $("mailboxesCount"),
+    refreshBtn: $("refreshMailboxesBtn"),
+    backBtn: $("backToDomainsBtn"),
+    sidebarMount: $("sidebarMount"),
+  };
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -26,8 +46,13 @@
       .replace(/\s+/g, "");
   }
 
+  function normalizeDisplayName(value) {
+    const text = String(value || "").trim();
+    return text || null;
+  }
+
   function humanizeMailboxStatus(isActive) {
-    return isActive ? "Ativa" : "Inativa";
+    return isActive ? "ATIVA" : "INATIVA";
   }
 
   function formatQuota(value) {
@@ -46,24 +71,40 @@
   }
 
   function setMessage(message, type = "info") {
-    const box = $("mailboxFormMessage");
-    if (!box) return;
-    box.textContent = message || "";
-    box.className = `form-message ${type}`.trim();
-    box.style.display = message ? "block" : "none";
+    if (!elements.messageBox) return;
+    elements.messageBox.textContent = message || "";
+    elements.messageBox.className = `form-message ${type}`.trim();
+    elements.messageBox.style.display = message ? "block" : "none";
   }
 
   function clearMessage() {
     setMessage("", "info");
   }
 
+  function setLoading(isLoading) {
+    if (!elements.submitBtn) return;
+    elements.submitBtn.disabled = isLoading;
+    elements.submitBtn.textContent = isLoading
+      ? (state.editingId ? "Salvando alterações..." : "Criando caixa...")
+      : (state.editingId ? "Salvar alterações" : "Salvar caixa de e-mail");
+  }
+
   async function parseJson(response) {
     let payload = null;
-    try { payload = await response.json(); } catch (_) { payload = null; }
+    try {
+      payload = await response.json();
+    } catch (_) {
+      payload = null;
+    }
+
     if (!response.ok) {
-      const errorMessage = payload?.detail || payload?.message || `Erro ${response.status}`;
+      const errorMessage =
+        payload?.detail ||
+        payload?.message ||
+        `Erro ${response.status}`;
       throw new Error(errorMessage);
     }
+
     return payload;
   }
 
@@ -90,7 +131,7 @@
   }
 
   async function mountSidebar() {
-    const mount = $("sidebarMount");
+    const mount = elements.sidebarMount;
     if (!mount) return;
 
     const response = await fetch("/assets/partials/sidebar.html", {
@@ -120,11 +161,13 @@
     document.querySelectorAll("#sidebarMount a[href]").forEach((link) => {
       const href = (link.getAttribute("href") || "").trim();
       if (!href || href.startsWith("#") || href.startsWith("http")) return;
+
       const normalizedHref = href.replace(/\/+$/, "") || "/";
       const active = normalizedHref === currentPath;
 
       link.classList.toggle("active", active);
       link.classList.toggle("is-active", active);
+
       if (active) link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
     });
@@ -141,7 +184,6 @@
     const data = await api("/api/dominios");
     state.domains = Array.isArray(data?.items) ? data.items : [];
     renderDomainOptions();
-    toggleMailboxFormAvailability();
   }
 
   async function loadMailboxes(showFeedback = false) {
@@ -155,301 +197,287 @@
   }
 
   function renderDomainOptions(selectedId = "") {
-    const select = $("mailboxDomainId");
-    if (!select) return;
+    if (!elements.domainId) return;
 
     if (!state.domains.length) {
-      select.innerHTML = `<option value="">Nenhum domínio cadastrado</option>`;
+      elements.domainId.innerHTML = `<option value="">Nenhum domínio ativo disponível</option>`;
+      elements.domainId.disabled = true;
       return;
     }
 
-    const options = state.domains
+    elements.domainId.disabled = false;
+    elements.domainId.innerHTML = state.domains
       .map((domain) => {
-        const selected = String(domain.id) === String(selectedId) ? "selected" : "";
+        const selected = String(selectedId || "") === String(domain.id) ? "selected" : "";
         const label = domain.is_primary ? `${domain.name} (principal)` : domain.name;
-        return `<option value="${domain.id}" ${selected}>${escapeHtml(label)}</option>`;
+        return `<option value="${escapeHtml(domain.id)}" ${selected}>${escapeHtml(label)}</option>`;
       })
       .join("");
-
-    select.innerHTML = options;
-  }
-
-  function renderDomainSelectHtml(selectedId) {
-    if (!state.domains.length) {
-      return `<option value="">Nenhum domínio disponível</option>`;
-    }
-
-    return state.domains
-      .map((domain) => {
-        const selected = String(domain.id) === String(selectedId) ? "selected" : "";
-        const label = domain.is_primary ? `${domain.name} (principal)` : domain.name;
-        return `<option value="${domain.id}" ${selected}>${escapeHtml(label)}</option>`;
-      })
-      .join("");
-  }
-
-  function toggleMailboxFormAvailability() {
-    const form = $("mailboxForm");
-    const button = $("createMailboxBtn");
-    const disabled = !state.domains.length;
-
-    form?.querySelectorAll("input, select, button").forEach((el) => {
-      if (el.id === "createMailboxBtn") return;
-      el.disabled = disabled;
-    });
-
-    if (button) button.disabled = disabled;
-
-    if (disabled) {
-      setMessage("Cadastre pelo menos um domínio antes de criar caixas.", "info");
-    }
   }
 
   function renderMailboxes() {
-    const list = $("mailboxList");
-    const count = $("mailboxesCount");
+    if (!elements.list || !elements.count) return;
 
-    if (count) {
-      const total = state.mailboxes.length;
-      count.textContent = `${total} ${total === 1 ? "item" : "itens"}`;
-    }
-
-    if (!list) return;
+    elements.count.textContent = `${state.mailboxes.length} ${state.mailboxes.length === 1 ? "item" : "itens"}`;
 
     if (!state.mailboxes.length) {
-      list.innerHTML = `
-        <div class="empty-note">
-          Nenhuma caixa cadastrada ainda. Crie a primeira conta profissional da empresa.
-        </div>
-      `;
+      elements.list.innerHTML = `<div class="empty-note">Nenhuma caixa cadastrada ainda. Crie a primeira conta profissional da empresa.</div>`;
       return;
     }
 
-    list.innerHTML = state.mailboxes.map((item) => renderMailboxItem(item)).join("");
-  }
+    elements.list.innerHTML = state.mailboxes
+      .map((mailbox) => {
+        const statusLabel = humanizeMailboxStatus(mailbox.is_active);
+        const displayName = mailbox.display_name ? `${escapeHtml(mailbox.display_name)} • ` : "";
+        const domainName = mailbox.domain_name || "Sem domínio";
+        const updatedAt = formatDate(mailbox.updated_at || mailbox.created_at);
 
-  // --- NOVA RENDERIZAÇÃO VISUAL PARA O MODO CLEAR/SAAS ---
-  function renderMailboxItem(item) {
-    const isEditing = state.editingId === item.id;
-    const statusClass = item.is_active ? "active" : "inactive";
+        return `
+          <article class="domain-item">
+            <div class="domain-item__main">
+              <div class="domain-item__top">
+                <div class="domain-item__title-wrap">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                  <h4>${escapeHtml(mailbox.email)}</h4>
+                </div>
+                <div class="domain-item__actions">
+                  <button type="button" class="icon-btn" data-action="edit" data-id="${mailbox.id}" title="Editar">
+                    ✎
+                  </button>
+                  <button type="button" class="icon-btn" data-action="delete" data-id="${mailbox.id}" data-email="${escapeHtml(mailbox.email)}" title="Excluir">
+                    🗑
+                  </button>
+                </div>
+              </div>
 
-    if (isEditing) {
-      return `
-        <div class="domain-item edit-inline" data-mailbox-id="${item.id}">
-          <form class="mailbox-edit-form" data-mailbox-id="${item.id}">
-            <div class="field">
-              <label for="edit-domain-${item.id}">Domínio</label>
-              <div class="select-wrapper">
-                <select id="edit-domain-${item.id}" name="dominio_id" required>
-                  ${renderDomainSelectHtml(item.dominio_id)}
-                </select>
-                <svg class="select-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              <div class="domain-item__meta">
+                <span class="status-chip ${mailbox.is_active ? "is-active" : "is-inactive"}">${statusLabel}</span>
+                <span>${displayName}Domínio: ${escapeHtml(domainName)} • Quota: ${escapeHtml(formatQuota(mailbox.quota_mb))}</span>
+              </div>
+
+              <div class="domain-item__date">
+                Atualizado em ${escapeHtml(updatedAt)}
               </div>
             </div>
+          </article>
+        `;
+      })
+      .join("");
 
-            <div class="field">
-              <label for="edit-local-${item.id}">Nome da Conta</label>
-              <input type="text" id="edit-local-${item.id}" name="local_part" value="${escapeHtml(item.local_part)}" maxlength="120" required />
-            </div>
-
-            <div class="field">
-              <label for="edit-display-${item.id}">Nome de Exibição</label>
-              <input type="text" id="edit-display-${item.id}" name="display_name" value="${escapeHtml(item.display_name || "")}" maxlength="150" />
-            </div>
-
-            <div class="field">
-              <label for="edit-quota-${item.id}">Quota (MB)</label>
-              <input type="number" id="edit-quota-${item.id}" name="quota_mb" min="128" max="102400" step="128" value="${Number(item.quota_mb || 2048)}" required />
-            </div>
-
-            <label class="checkbox-row" for="edit-active-${item.id}">
-              <input type="checkbox" id="edit-active-${item.id}" name="is_active" ${item.is_active ? "checked" : ""} />
-              <span class="checkbox-box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-              <span class="checkbox-text">Caixa Ativa</span>
-            </label>
-
-            <div class="edit-actions">
-              <button type="submit" class="btn btn-primary">Salvar alterações</button>
-              <button type="button" class="btn btn-secondary" data-action="cancel-edit" data-id="${item.id}">Cancelar</button>
-            </div>
-          </form>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="domain-item" data-mailbox-id="${item.id}">
-        <div class="domain-item__top">
-          <div class="domain-info">
-            <h4>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-              ${escapeHtml(item.email)}
-            </h4>
-            
-            <div class="domain-meta">
-              <span class="status-chip ${statusClass}">${escapeHtml(humanizeMailboxStatus(item.is_active))}</span>
-              <span>${item.display_name ? `<strong>${escapeHtml(item.display_name)}</strong> &bull; ` : ""}Domínio: ${escapeHtml(item.domain_name || "-")}</span>
-              <span>&bull; Quota: ${escapeHtml(formatQuota(item.quota_mb))}</span>
-            </div>
-            
-            <div class="domain-meta" style="margin-top: 4px;">
-              <span style="font-size: 12px;">Atualizado em ${escapeHtml(formatDate(item.updated_at || item.created_at))}</span>
-            </div>
-          </div>
-
-          <div class="domain-actions">
-            <button type="button" class="btn-icon" data-action="edit" data-id="${item.id}" title="Editar Caixa">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-            </button>
-            <button type="button" class="btn-icon danger" data-action="delete" data-id="${item.id}" title="Excluir Caixa">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
+    bindListActions();
   }
 
-  function resetCreateForm() {
-    const form = $("mailboxForm");
-    if (!form) return;
+  function bindListActions() {
+    elements.list.querySelectorAll("[data-action='edit']").forEach((button) => {
+      button.addEventListener("click", () => {
+        const id = Number(button.getAttribute("data-id") || 0);
+        const mailbox = state.mailboxes.find((item) => Number(item.id) === id);
+        if (mailbox) {
+          enterEditMode(mailbox);
+        }
+      });
+    });
 
-    form.reset();
-    $("mailboxQuotaMb").value = "2048";
-    $("mailboxIsActive").checked = true;
+    elements.list.querySelectorAll("[data-action='delete']").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const id = Number(button.getAttribute("data-id") || 0);
+        const email = String(button.getAttribute("data-email") || "");
+        await deleteMailbox(id, email);
+      });
+    });
+  }
 
-    if (state.domains.length) {
-      renderDomainOptions(state.domains[0].id);
+  function resetForm(clearFeedback = false) {
+    state.editingId = null;
+
+    if (elements.form) elements.form.reset();
+    if (elements.formTitle) elements.formTitle.textContent = "Criar Nova Caixa";
+    if (elements.submitBtn) elements.submitBtn.textContent = "Salvar caixa de e-mail";
+    if (elements.cancelEditBtn) elements.cancelEditBtn.style.display = "none";
+
+    if (elements.quotaMb) elements.quotaMb.value = "2048";
+    if (elements.isActive) elements.isActive.checked = true;
+    if (elements.password) elements.password.value = "";
+    if (elements.confirmPassword) elements.confirmPassword.value = "";
+
+    renderDomainOptions();
+
+    if (clearFeedback) {
+      clearMessage();
     }
   }
 
-  async function handleCreate(event) {
-    event.preventDefault();
-    clearMessage();
+  function enterEditMode(mailbox) {
+    state.editingId = Number(mailbox.id);
 
-    const dominioId = Number($("mailboxDomainId")?.value);
-    const localPart = normalizeLocalPart($("mailboxLocalPart")?.value);
-    const displayName = ($("mailboxDisplayName")?.value || "").trim();
-    const quotaMb = Number($("mailboxQuotaMb")?.value || 2048);
-    const isActive = Boolean($("mailboxIsActive")?.checked);
+    if (elements.formTitle) elements.formTitle.textContent = "Editar Caixa";
+    if (elements.submitBtn) elements.submitBtn.textContent = "Salvar alterações";
+    if (elements.cancelEditBtn) elements.cancelEditBtn.style.display = "block";
+
+    renderDomainOptions(mailbox.dominio_id);
+    elements.localPart.value = mailbox.local_part || "";
+    elements.displayName.value = mailbox.display_name || "";
+    elements.password.value = "";
+    elements.confirmPassword.value = "";
+    elements.quotaMb.value = String(mailbox.quota_mb || 2048);
+    elements.isActive.checked = Boolean(mailbox.is_active);
+
+    setMessage(
+      `Editando ${mailbox.email}. Se quiser trocar a senha, preencha os dois campos de senha.`,
+      "info"
+    );
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function validatePasswordFields() {
+    const password = String(elements.password?.value || "").trim();
+    const confirmPassword = String(elements.confirmPassword?.value || "").trim();
+
+    if (!password && !confirmPassword) {
+      return null;
+    }
+
+    if (!password || !confirmPassword) {
+      throw new Error("Preencha a senha e a confirmação da senha.");
+    }
+
+    if (password.length < 8) {
+      throw new Error("A senha da caixa precisa ter pelo menos 8 caracteres.");
+    }
+
+    if (password !== confirmPassword) {
+      throw new Error("A confirmação da senha não confere.");
+    }
+
+    return password;
+  }
+
+  function buildPayload() {
+    const dominioId = Number(elements.domainId?.value || 0);
+    const localPart = normalizeLocalPart(elements.localPart?.value || "");
+    const displayName = normalizeDisplayName(elements.displayName?.value || "");
+    const quotaMb = Number(elements.quotaMb?.value || 0);
+    const password = validatePasswordFields();
 
     if (!dominioId) {
-      setMessage("Selecione um domínio.", "error");
-      return;
+      throw new Error("Selecione um domínio.");
     }
 
     if (!localPart) {
-      setMessage("Informe o nome da caixa.", "error");
-      return;
+      throw new Error("Informe o nome da conta antes do @.");
     }
 
+    if (!/^[a-z0-9](?:[a-z0-9._-]{0,118}[a-z0-9])?$/.test(localPart)) {
+      throw new Error("Use apenas letras, números, ponto, hífen ou underline no nome da conta.");
+    }
+
+    if (!quotaMb || quotaMb < 128 || quotaMb > 102400) {
+      throw new Error("Informe uma quota válida entre 128 MB e 102400 MB.");
+    }
+
+    const payload = {
+      dominio_id: dominioId,
+      local_part: localPart,
+      display_name: displayName,
+      quota_mb: quotaMb,
+      is_active: Boolean(elements.isActive?.checked),
+    };
+
+    if (!state.editingId && password) {
+      payload.password = password;
+    }
+
+    return { payload, password };
+  }
+
+  async function createMailbox(payload) {
+    return api("/api/caixas-email", {
+      method: "POST",
+      body: payload,
+    });
+  }
+
+  async function updateMailbox(mailboxId, payload) {
+    return api(`/api/caixas-email/${mailboxId}`, {
+      method: "PATCH",
+      body: payload,
+    });
+  }
+
+  async function updateMailboxPassword(mailboxId, password) {
+    return api(`/api/caixas-email/${mailboxId}/set-password`, {
+      method: "POST",
+      body: { password },
+    });
+  }
+
+  async function deleteMailbox(mailboxId, email) {
+    const confirmed = window.confirm(`Tem certeza que deseja excluir a caixa ${email}?`);
+    if (!confirmed) return;
+
     try {
-      const result = await api("/api/caixas-email", {
-        method: "POST",
-        body: {
-          dominio_id: dominioId,
-          local_part: localPart,
-          display_name: displayName || null,
-          quota_mb: quotaMb,
-          is_active: isActive,
-        },
+      await api(`/api/caixas-email/${mailboxId}`, {
+        method: "DELETE",
       });
 
-      resetCreateForm();
-      state.editingId = null;
+      if (state.editingId === mailboxId) {
+        resetForm(false);
+      }
+
       await loadMailboxes();
-      setMessage(result?.message || "Caixa criada com sucesso.", "success");
+      setMessage(`Caixa ${email} removida com sucesso.`, "success");
     } catch (error) {
-      setMessage(error.message || "Erro ao criar caixa.", "error");
+      console.error(error);
+      setMessage(error.message || "Não foi possível excluir a caixa.", "error");
     }
   }
 
-  async function handleListClick(event) {
-    const actionButton = event.target.closest("[data-action]");
-    if (!actionButton) return;
+  async function handleSubmit(event) {
+    event.preventDefault();
+    clearMessage();
+    setLoading(true);
 
-    const action = actionButton.getAttribute("data-action");
-    const mailboxId = Number(actionButton.getAttribute("data-id"));
+    try {
+      const { payload, password } = buildPayload();
 
-    if (!mailboxId) return;
+      if (state.editingId) {
+        const mailboxId = Number(state.editingId);
+        const response = await updateMailbox(mailboxId, payload);
 
-    if (action === "edit") {
-      state.editingId = mailboxId;
-      renderMailboxes();
-      return;
-    }
-
-    if (action === "cancel-edit") {
-      state.editingId = null;
-      renderMailboxes();
-      return;
-    }
-
-    if (action === "delete") {
-      const confirmed = window.confirm("Deseja realmente excluir esta caixa de e-mail?");
-      if (!confirmed) return;
-
-      try {
-        clearMessage();
-        const result = await api(`/api/caixas-email/${mailboxId}`, {
-          method: "DELETE",
-        });
-
-        if (state.editingId === mailboxId) {
-          state.editingId = null;
+        if (password) {
+          await updateMailboxPassword(mailboxId, password);
         }
 
         await loadMailboxes();
-        setMessage(result?.message || "Caixa removida com sucesso.", "success");
-      } catch (error) {
-        setMessage(error.message || "Erro ao excluir caixa.", "error");
+        setMessage(
+          password
+            ? "Caixa atualizada com sucesso e senha alterada."
+            : (response?.message || "Caixa atualizada com sucesso."),
+          "success"
+        );
+        resetForm(false);
+        return;
       }
-    }
-  }
 
-  async function handleEditSubmit(event) {
-    const form = event.target.closest(".mailbox-edit-form");
-    if (!form) return;
-
-    event.preventDefault();
-    clearMessage();
-
-    const mailboxId = Number(form.getAttribute("data-mailbox-id"));
-    if (!mailboxId) return;
-
-    const dominioId = Number(form.elements.dominio_id?.value);
-    const localPart = normalizeLocalPart(form.elements.local_part?.value);
-    const displayName = (form.elements.display_name?.value || "").trim();
-    const quotaMb = Number(form.elements.quota_mb?.value || 2048);
-    const isActive = Boolean(form.elements.is_active?.checked);
-
-    if (!dominioId) {
-      setMessage("Selecione um domínio.", "error");
-      return;
-    }
-
-    if (!localPart) {
-      setMessage("Informe o nome da caixa.", "error");
-      return;
-    }
-
-    try {
-      const result = await api(`/api/caixas-email/${mailboxId}`, {
-        method: "PATCH",
-        body: {
-          dominio_id: dominioId,
-          local_part: localPart,
-          display_name: displayName || null,
-          quota_mb: quotaMb,
-          is_active: isActive,
-        },
-      });
-
-      state.editingId = null;
+      const response = await createMailbox(payload);
       await loadMailboxes();
-      setMessage(result?.message || "Caixa atualizada com sucesso.", "success");
+
+      if (response?.generated_password) {
+        setMessage(
+          `Caixa criada com sucesso. Senha gerada: ${response.generated_password}`,
+          "success"
+        );
+      } else {
+        setMessage(response?.message || "Caixa criada com sucesso.", "success");
+      }
+
+      resetForm(false);
     } catch (error) {
-      setMessage(error.message || "Erro ao atualizar caixa.", "error");
+      console.error(error);
+      setMessage(error.message || "Não foi possível salvar a caixa.", "error");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -459,32 +487,41 @@
       await loadMe();
       await loadDomains();
       await loadMailboxes();
-
-      if (state.domains.length) {
-        renderDomainOptions(state.domains[0].id);
-      }
+      resetForm(true);
     } catch (error) {
-      setMessage(error.message || "Erro ao carregar a página.", "error");
+      console.error(error);
+      setMessage(error.message || "Erro ao carregar a tela de caixas.", "error");
     }
+  }
 
-    $("mailboxForm")?.addEventListener("submit", handleCreate);
-    $("mailboxList")?.addEventListener("click", handleListClick);
-    $("mailboxList")?.addEventListener("submit", handleEditSubmit);
+  if (elements.form) {
+    elements.form.addEventListener("submit", handleSubmit);
+  }
 
-    $("refreshMailboxesBtn")?.addEventListener("click", async () => {
-      clearMessage();
+  if (elements.cancelEditBtn) {
+    elements.cancelEditBtn.addEventListener("click", () => {
+      resetForm(true);
+    });
+  }
+
+  if (elements.refreshBtn) {
+    elements.refreshBtn.addEventListener("click", async () => {
       try {
+        clearMessage();
         await loadDomains();
         await loadMailboxes(true);
       } catch (error) {
-        setMessage(error.message || "Erro ao atualizar lista.", "error");
+        console.error(error);
+        setMessage(error.message || "Não foi possível atualizar as caixas.", "error");
       }
     });
+  }
 
-    $("backToDomainsBtn")?.addEventListener("click", () => {
+  if (elements.backBtn) {
+    elements.backBtn.addEventListener("click", () => {
       window.location.href = "/dominios";
     });
   }
 
-  document.addEventListener("DOMContentLoaded", init);
+  init();
 })();

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AureMail | Entrar no Webmail</title>
+  <meta name="description" content="Login do webmail por caixa de e-mail." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    (() => {
+      const savedTheme = localStorage.getItem("auremail-theme");
+      if (savedTheme === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="/assets/css/webmail-login.css" />
+</head>
+<body>
+  <div class="webmail-login-page">
+    <main class="webmail-login-shell">
+      <section class="webmail-login-brand">
+        <div class="brand-badge">Webmail AureMail</div>
+        <h1>Acesse sua caixa de e-mail</h1>
+        <p>
+          Entre com o endereço completo da caixa e a senha dela.
+          Exemplo: <strong>financeiro@suaempresa.com.br</strong>
+        </p>
+
+        <div class="brand-card-list">
+          <article class="brand-card">
+            <h3>Login direto da caixa</h3>
+            <p>Veja somente as mensagens da conta acessada.</p>
+          </article>
+
+          <article class="brand-card">
+            <h3>Envio pelo próprio endereço</h3>
+            <p>Envie e-mails usando a identidade da caixa selecionada.</p>
+          </article>
+
+          <article class="brand-card">
+            <h3>Acesso separado do painel</h3>
+            <p>O webmail pode ser usado sem entrar no painel administrativo.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="webmail-login-card">
+        <div class="login-card-head">
+          <span class="mini-badge">Login por caixa</span>
+          <h2>Entrar no Webmail</h2>
+          <p>Use o e-mail completo da caixa e a senha configurada nela.</p>
+        </div>
+
+        <form id="webmailLoginForm" novalidate>
+          <div class="field">
+            <label for="email">E-mail da caixa</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              placeholder="ex.: financeiro@segsis.com.br"
+              autocomplete="username"
+              required
+            />
+            <small class="field-error" id="emailError"></small>
+          </div>
+
+          <div class="field">
+            <label for="password">Senha</label>
+            <div class="password-wrap">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Digite a senha da caixa"
+                autocomplete="current-password"
+                required
+              />
+              <button type="button" class="toggle-password" id="togglePassword" aria-label="Mostrar senha">
+                <span id="togglePasswordText">Mostrar</span>
+              </button>
+            </div>
+            <small class="field-error" id="passwordError"></small>
+          </div>
+
+          <label class="remember-row" for="remember">
+            <input type="checkbox" id="remember" name="remember" />
+            <span>Manter conectado neste navegador</span>
+          </label>
+
+          <button type="submit" class="submit-btn" id="loginBtn">
+            Entrar no webmail
+          </button>
+
+          <div class="form-message" id="formMessage"></div>
+        </form>
+
+        <div class="login-footer-links">
+          <a href="/login">Ir para login do painel</a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/assets/js/webmail-login.js"></script>
+</body>
+</html>

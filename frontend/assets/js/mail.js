@@ -1,6 +1,7 @@
 (function () {
   const state = {
     me: null,
+    authMode: "platform",
     context: null,
     company: null,
     user: null,
@@ -37,17 +38,22 @@
 
   function syncUrlSelection() {
     const url = new URL(window.location.href);
-    if (state.currentDomainId) { url.searchParams.set("dominio_id", String(state.currentDomainId)); } 
-    else { url.searchParams.delete("dominio_id"); }
+    if (state.currentDomainId) url.searchParams.set("dominio_id", String(state.currentDomainId));
+    else url.searchParams.delete("dominio_id");
 
-    if (state.currentMailboxId) { url.searchParams.set("caixa_id", String(state.currentMailboxId)); } 
-    else { url.searchParams.delete("caixa_id"); }
+    if (state.currentMailboxId) url.searchParams.set("caixa_id", String(state.currentMailboxId));
+    else url.searchParams.delete("caixa_id");
 
     window.history.replaceState({}, "", url.toString());
   }
 
-  function currentDomain() { return state.domains.find((item) => Number(item.id) === Number(state.currentDomainId)) || null; }
-  function currentMailbox() { return state.mailboxes.find((item) => Number(item.id) === Number(state.currentMailboxId)) || null; }
+  function currentDomain() {
+    return state.domains.find((item) => Number(item.id) === Number(state.currentDomainId)) || null;
+  }
+
+  function currentMailbox() {
+    return state.mailboxes.find((item) => Number(item.id) === Number(state.currentMailboxId)) || null;
+  }
 
   function mailboxOptionsForCurrentDomain() {
     if (!state.currentDomainId) return [];
@@ -64,10 +70,12 @@
   async function parseJson(response) {
     let payload = null;
     try { payload = await response.json(); } catch (_) { payload = null; }
+
     if (!response.ok) {
       const message = payload?.detail || payload?.message || `Erro ${response.status}`;
       throw new Error(message);
     }
+
     return payload;
   }
 
@@ -86,13 +94,35 @@
     const response = await fetch(url, config);
 
     if (response.status === 401) {
-      window.location.href = "/login";
+      window.location.href = state.authMode === "mailbox" ? "/webmail-login" : "/login";
       throw new Error("Sessão expirada.");
     }
+
     return parseJson(response);
   }
 
+  async function tryGetJson(url) {
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function mountSidebar() {
+    if (state.authMode === "mailbox") {
+      const mount = $("sidebarMount");
+      if (mount) mount.innerHTML = "";
+      return;
+    }
+
     const mount = $("sidebarMount");
     if (!mount) return;
 
@@ -107,7 +137,9 @@
 
     mount.querySelectorAll("script").forEach((oldScript) => {
       const newScript = document.createElement("script");
-      Array.from(oldScript.attributes).forEach((attr) => { newScript.setAttribute(attr.name, attr.value); });
+      Array.from(oldScript.attributes).forEach((attr) => {
+        newScript.setAttribute(attr.name, attr.value);
+      });
       newScript.textContent = oldScript.textContent;
       oldScript.replaceWith(newScript);
     });
@@ -125,14 +157,28 @@
 
       link.classList.toggle("active", active);
       link.classList.toggle("is-active", active);
-      if (active) { link.setAttribute("aria-current", "page"); } 
-      else { link.removeAttribute("aria-current"); }
+      if (active) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
     });
   }
 
   async function loadMe() {
-    state.me = await api("/api/me");
-    if (window.AureMailSidebar?.apply) { window.AureMailSidebar.apply(state.me); }
+    const platformMe = await tryGetJson("/api/me");
+    if (platformMe?.success) {
+      state.authMode = "platform";
+      state.me = platformMe;
+      if (window.AureMailSidebar?.apply) window.AureMailSidebar.apply(state.me);
+      return;
+    }
+
+    const mailboxMe = await tryGetJson("/api/webmail-auth/me");
+    if (mailboxMe?.success) {
+      state.authMode = "mailbox";
+      state.me = mailboxMe;
+      return;
+    }
+
+    window.location.href = "/webmail-login";
   }
 
   async function loadContext() {
@@ -168,7 +214,7 @@
       return;
     }
 
-    select.disabled = false;
+    select.disabled = state.authMode === "mailbox";
     select.innerHTML = state.domains
       .map((domain) => {
         const selected = Number(domain.id) === Number(state.currentDomainId) ? "selected" : "";
@@ -195,7 +241,7 @@
       state.currentMailboxId = activeFirst?.id || null;
     }
 
-    select.disabled = false;
+    select.disabled = state.authMode === "mailbox";
     select.innerHTML = items
       .map((mailbox) => {
         const selected = Number(mailbox.id) === Number(state.currentMailboxId) ? "selected" : "";
@@ -210,7 +256,6 @@
     const company = state.company || {};
     const domain = currentDomain();
     const mailbox = currentMailbox();
-
     if (!info) return;
 
     if (!state.domains.length) {
@@ -229,7 +274,7 @@
   function updateComposeFrom() {
     const fromInput = $("from");
     const mailbox = currentMailbox();
-    if (fromInput) { fromInput.value = mailbox?.email || ""; }
+    if (fromInput) fromInput.value = mailbox?.email || "";
   }
 
   function renderFolderCounts(counts = {}) {
@@ -251,7 +296,6 @@
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "Data inválida";
 
-    // Mostra só a hora se for hoje, senão mostra a data curta
     const today = new Date();
     if (date.toDateString() === today.toDateString()) {
       return new Intl.DateTimeFormat("pt-BR", { timeStyle: "short" }).format(date);
@@ -286,13 +330,19 @@
   }
 
   async function loadMessages() {
-    if (!state.domains.length) { renderNoDomainState(); return; }
+    if (!state.domains.length) {
+      renderNoDomainState();
+      return;
+    }
 
     const mailbox = currentMailbox();
-    if (!mailbox) { renderNoMailboxState(); return; }
+    if (!mailbox) {
+      renderNoMailboxState();
+      return;
+    }
 
     const params = new URLSearchParams({ folder: state.currentFolder });
-    if (state.search) { params.set("q", state.search); }
+    if (state.search) params.set("q", state.search);
 
     const data = await api(`/api/webmail/mailboxes/${mailbox.id}/messages?${params.toString()}`);
     state.messages = Array.isArray(data?.items) ? data.items : [];
@@ -315,7 +365,6 @@
     }
   }
 
-  // --- HTML DE LISTA ATUALIZADO ---
   function renderMessageList() {
     const list = $("mailList");
     if (!list) return;
@@ -354,7 +403,10 @@
 
   async function loadMessageDetail(messageId, markAsRead = true) {
     const mailbox = currentMailbox();
-    if (!mailbox || !messageId) { renderEmptyMessageView(); return; }
+    if (!mailbox || !messageId) {
+      renderEmptyMessageView();
+      return;
+    }
 
     const data = await api(`/api/webmail/mailboxes/${mailbox.id}/messages/${messageId}`);
     state.selectedMessageId = Number(messageId);
@@ -374,12 +426,14 @@
     }
   }
 
-  // --- HTML DA MENSAGEM ATUALIZADO ---
   function renderMessageView() {
     const view = $("mailView");
     const msg = state.selectedMessage;
 
-    if (!view || !msg) { renderEmptyMessageView(); return; }
+    if (!view || !msg) {
+      renderEmptyMessageView();
+      return;
+    }
 
     $("mailViewSubtitle").textContent = msg.subject || "Sem assunto";
 
@@ -420,13 +474,19 @@
 
   async function sendCompose(saveAsDraft) {
     const mailbox = currentMailbox();
-    if (!mailbox) { setFeedback("Nenhuma caixa selecionada.", "error"); return; }
+    if (!mailbox) {
+      setFeedback("Nenhuma caixa selecionada.", "error");
+      return;
+    }
 
     const to = $("to")?.value?.trim();
     const subject = $("subject")?.value?.trim();
     const body = $("message")?.value?.trim();
 
-    if (!to) { setFeedback("Informe o destinatário.", "error"); return; }
+    if (!to) {
+      setFeedback("Informe o destinatário.", "error");
+      return;
+    }
 
     const result = await api(`/api/webmail/mailboxes/${mailbox.id}/compose`, {
       method: "POST",
@@ -446,7 +506,10 @@
   async function moveSelectedToTrash() {
     const mailbox = currentMailbox();
     const msg = state.selectedMessage;
-    if (!mailbox || !msg) { setFeedback("Selecione uma mensagem primeiro.", "error"); return; }
+    if (!mailbox || !msg) {
+      setFeedback("Selecione uma mensagem primeiro.", "error");
+      return;
+    }
 
     await api(`/api/webmail/mailboxes/${mailbox.id}/messages/${msg.id}/move`, {
       method: "POST",
@@ -461,7 +524,10 @@
 
   function prefillReply() {
     const msg = state.selectedMessage;
-    if (!msg) { setFeedback("Selecione uma mensagem para responder.", "error"); return; }
+    if (!msg) {
+      setFeedback("Selecione uma mensagem para responder.", "error");
+      return;
+    }
 
     openCompose();
     $("to").value = msg.from_email || "";
@@ -471,7 +537,10 @@
 
   function prefillForward() {
     const msg = state.selectedMessage;
-    if (!msg) { setFeedback("Selecione uma mensagem para encaminhar.", "error"); return; }
+    if (!msg) {
+      setFeedback("Selecione uma mensagem para encaminhar.", "error");
+      return;
+    }
 
     openCompose();
     $("to").value = "";
@@ -487,8 +556,15 @@
   }
 
   async function logout() {
-    try { await api("/api/logout", { method: "POST" }); } 
-    finally { window.location.href = "/login"; }
+    try {
+      if (state.authMode === "mailbox") {
+        await api("/api/webmail-auth/logout", { method: "POST" });
+      } else {
+        await api("/api/logout", { method: "POST" });
+      }
+    } finally {
+      window.location.href = state.authMode === "mailbox" ? "/webmail-login" : "/login";
+    }
   }
 
   function bindEvents() {
@@ -536,7 +612,7 @@
       if (!messageId) return;
 
       await loadMessageDetail(messageId, true);
-      renderMessageList(); // update active class and unread dot
+      renderMessageList();
     });
 
     $("openComposeBtn")?.addEventListener("click", openCompose);
@@ -544,21 +620,30 @@
     $("composeOverlay")?.addEventListener("click", closeCompose);
 
     $("draftBtn")?.addEventListener("click", async () => {
-      try { await sendCompose(true); } 
-      catch (error) { setFeedback(error.message || "Erro ao salvar rascunho.", "error"); }
+      try {
+        await sendCompose(true);
+      } catch (error) {
+        setFeedback(error.message || "Erro ao salvar rascunho.", "error");
+      }
     });
 
     $("composeForm")?.addEventListener("submit", async (event) => {
       event.preventDefault();
-      try { await sendCompose(false); } 
-      catch (error) { setFeedback(error.message || "Erro ao enviar mensagem.", "error"); }
+      try {
+        await sendCompose(false);
+      } catch (error) {
+        setFeedback(error.message || "Erro ao enviar mensagem.", "error");
+      }
     });
 
     $("replyBtn")?.addEventListener("click", prefillReply);
     $("forwardBtn")?.addEventListener("click", prefillForward);
     $("archiveBtn")?.addEventListener("click", async () => {
-      try { await moveSelectedToTrash(); } 
-      catch (error) { setFeedback(error.message || "Erro ao mover mensagem.", "error"); }
+      try {
+        await moveSelectedToTrash();
+      } catch (error) {
+        setFeedback(error.message || "Erro ao mover mensagem.", "error");
+      }
     });
 
     $("refreshBtn")?.addEventListener("click", async () => {
@@ -574,7 +659,7 @@
 
     $("mailSearch")?.addEventListener("input", (event) => {
       state.search = String(event.target.value || "").trim();
-      if (state.searchTimer) { clearTimeout(state.searchTimer); }
+      if (state.searchTimer) clearTimeout(state.searchTimer);
       state.searchTimer = setTimeout(async () => {
         try {
           state.selectedMessageId = null;
@@ -589,8 +674,8 @@
 
   async function init() {
     try {
-      await mountSidebar();
       await loadMe();
+      await mountSidebar();
       await loadContext();
       bindEvents();
       await loadMessages();

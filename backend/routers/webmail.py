@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -17,9 +18,8 @@ from backend.models import (
     Empresa,
     Mensagem,
     Pasta,
-    UsuarioPlataforma,
 )
-from backend.routers.auth import get_current_user
+from backend.routers.webmail_auth import get_current_mail_actor
 from backend.utils.crypto import SecretCryptoError, decrypt_secret
 
 
@@ -59,6 +59,19 @@ def preview_from_body(body: str | None, max_len: int = 180) -> str | None:
     if not text:
         return None
     return text[:max_len]
+
+
+def actor_empresa_id(actor: dict[str, Any]) -> int:
+    return int(actor["empresa_id"])
+
+
+def actor_kind(actor: dict[str, Any]) -> str:
+    return str(actor.get("kind") or "").strip().lower()
+
+
+def actor_mailbox(actor: dict[str, Any]) -> CaixaEmail | None:
+    mailbox = actor.get("mailbox")
+    return mailbox if isinstance(mailbox, CaixaEmail) else None
 
 
 def get_company(db: Session, empresa_id: int) -> Empresa | None:
@@ -184,17 +197,6 @@ def get_folder_map(db: Session, mailbox_id: int) -> dict[str, Pasta]:
     return {row.slug: row for row in rows}
 
 
-def get_domain_for_company(db: Session, empresa_id: int, domain_id: int) -> Dominio | None:
-    return (
-        db.query(Dominio)
-        .filter(
-            Dominio.id == domain_id,
-            Dominio.empresa_id == empresa_id,
-        )
-        .first()
-    )
-
-
 def get_mailbox_for_company(
     db: Session,
     empresa_id: int,
@@ -225,6 +227,27 @@ def get_required_mailbox_for_company(
     mailbox = get_mailbox_for_company(db, empresa_id, mailbox_id, only_active=only_active)
     if not mailbox:
         raise HTTPException(status_code=404, detail="Caixa de e-mail não encontrada.")
+    return mailbox
+
+
+def get_accessible_mailbox(
+    db: Session,
+    actor: dict[str, Any],
+    mailbox_id: int,
+    only_active: bool = False,
+) -> CaixaEmail:
+    mailbox = get_required_mailbox_for_company(
+        db,
+        empresa_id=actor_empresa_id(actor),
+        mailbox_id=mailbox_id,
+        only_active=only_active,
+    )
+
+    if actor_kind(actor) == "mailbox_user":
+        own_mailbox = actor_mailbox(actor)
+        if not own_mailbox or int(mailbox.id) != int(own_mailbox.id):
+            raise HTTPException(status_code=403, detail="Acesso negado para esta caixa.")
+
     return mailbox
 
 
@@ -335,14 +358,56 @@ def save_outbound_message(
 def webmail_context(
     dominio_id: int | None = Query(default=None),
     caixa_id: int | None = Query(default=None),
-    current_user: UsuarioPlataforma = Depends(get_current_user),
+    actor: dict[str, Any] = Depends(get_current_mail_actor),
     db: Session = Depends(get_db),
 ):
-    company = get_company(db, current_user.empresa_id)
+    empresa_id = actor_empresa_id(actor)
+    company = get_company(db, empresa_id)
+
+    if actor_kind(actor) == "mailbox_user":
+        mailbox = get_accessible_mailbox(
+            db,
+            actor=actor,
+            mailbox_id=int(actor_mailbox(actor).id),
+            only_active=True,
+        )
+        changed = ensure_default_folders(db, mailbox)
+        if changed:
+            db.commit()
+
+        domain = mailbox.dominio
+        domains = [domain] if domain else []
+        mailboxes = [mailbox]
+
+        return {
+            "success": True,
+            "auth_mode": "mailbox",
+            "user": {
+                "id": mailbox.id,
+                "empresa_id": mailbox.empresa_id,
+                "name": mailbox.display_name or mailbox.local_part,
+                "email": mailbox.email,
+                "is_owner": False,
+                "is_active": bool(mailbox.is_active),
+                "account_type": "mailbox_user",
+            },
+            "company": {
+                "id": company.id if company else None,
+                "name": company.name if company else None,
+                "status": company.status if company else None,
+                "cnpj_cpf": company.cnpj_cpf if company else None,
+            },
+            "domains": [serialize_domain(item) for item in domains],
+            "mailboxes": [serialize_mailbox(item) for item in mailboxes],
+            "selected_domain_id": domain.id if domain else None,
+            "selected_mailbox_id": mailbox.id,
+        }
+
+    current_user = actor["platform_user"]
 
     domains = (
         db.query(Dominio)
-        .filter(Dominio.empresa_id == current_user.empresa_id)
+        .filter(Dominio.empresa_id == empresa_id)
         .order_by(Dominio.is_primary.desc(), Dominio.created_at.asc(), Dominio.id.asc())
         .all()
     )
@@ -350,7 +415,7 @@ def webmail_context(
     mailboxes = (
         db.query(CaixaEmail)
         .options(joinedload(CaixaEmail.dominio))
-        .filter(CaixaEmail.empresa_id == current_user.empresa_id)
+        .filter(CaixaEmail.empresa_id == empresa_id)
         .order_by(
             CaixaEmail.is_active.desc(),
             CaixaEmail.dominio_id.asc(),
@@ -369,6 +434,7 @@ def webmail_context(
 
     return {
         "success": True,
+        "auth_mode": "platform",
         "user": {
             "id": current_user.id,
             "empresa_id": current_user.empresa_id,
@@ -376,6 +442,7 @@ def webmail_context(
             "email": current_user.email,
             "is_owner": bool(current_user.is_owner),
             "is_active": bool(current_user.is_active),
+            "account_type": "platform_user",
         },
         "company": {
             "id": company.id if company else None,
@@ -395,16 +462,16 @@ def list_messages(
     mailbox_id: int,
     folder: str = Query(default="inbox"),
     q: str | None = Query(default=None),
-    current_user: UsuarioPlataforma = Depends(get_current_user),
+    actor: dict[str, Any] = Depends(get_current_mail_actor),
     db: Session = Depends(get_db),
 ):
     folder_slug = (folder or "inbox").strip().lower()
     if folder_slug not in DEFAULT_FOLDERS:
         raise HTTPException(status_code=400, detail="Pasta inválida.")
 
-    mailbox = get_required_mailbox_for_company(
+    mailbox = get_accessible_mailbox(
         db,
-        empresa_id=current_user.empresa_id,
+        actor=actor,
         mailbox_id=mailbox_id,
         only_active=False,
     )
@@ -462,12 +529,12 @@ def list_messages(
 def message_detail(
     mailbox_id: int,
     message_id: int,
-    current_user: UsuarioPlataforma = Depends(get_current_user),
+    actor: dict[str, Any] = Depends(get_current_mail_actor),
     db: Session = Depends(get_db),
 ):
-    mailbox = get_required_mailbox_for_company(
+    mailbox = get_accessible_mailbox(
         db,
-        empresa_id=current_user.empresa_id,
+        actor=actor,
         mailbox_id=mailbox_id,
         only_active=False,
     )
@@ -489,12 +556,12 @@ def message_detail(
 def mark_message_as_read(
     mailbox_id: int,
     message_id: int,
-    current_user: UsuarioPlataforma = Depends(get_current_user),
+    actor: dict[str, Any] = Depends(get_current_mail_actor),
     db: Session = Depends(get_db),
 ):
-    mailbox = get_required_mailbox_for_company(
+    mailbox = get_accessible_mailbox(
         db,
-        empresa_id=current_user.empresa_id,
+        actor=actor,
         mailbox_id=mailbox_id,
         only_active=False,
     )
@@ -518,12 +585,12 @@ def move_message(
     mailbox_id: int,
     message_id: int,
     data: MoveMessageRequest,
-    current_user: UsuarioPlataforma = Depends(get_current_user),
+    actor: dict[str, Any] = Depends(get_current_mail_actor),
     db: Session = Depends(get_db),
 ):
-    mailbox = get_required_mailbox_for_company(
+    mailbox = get_accessible_mailbox(
         db,
-        empresa_id=current_user.empresa_id,
+        actor=actor,
         mailbox_id=mailbox_id,
         only_active=False,
     )
@@ -557,12 +624,12 @@ def move_message(
 def compose_message(
     mailbox_id: int,
     data: ComposeRequest,
-    current_user: UsuarioPlataforma = Depends(get_current_user),
+    actor: dict[str, Any] = Depends(get_current_mail_actor),
     db: Session = Depends(get_db),
 ):
-    mailbox = get_required_mailbox_for_company(
+    mailbox = get_accessible_mailbox(
         db,
-        empresa_id=current_user.empresa_id,
+        actor=actor,
         mailbox_id=mailbox_id,
         only_active=True,
     )
@@ -592,7 +659,7 @@ def compose_message(
 
             link = save_outbound_message(
                 db=db,
-                empresa_id=current_user.empresa_id,
+                empresa_id=actor_empresa_id(actor),
                 mailbox=mailbox,
                 folder=folder,
                 to_email=to_email,
@@ -629,7 +696,7 @@ def compose_message(
 
         link = save_outbound_message(
             db=db,
-            empresa_id=current_user.empresa_id,
+            empresa_id=actor_empresa_id(actor),
             mailbox=mailbox,
             folder=folder,
             to_email=to_email,

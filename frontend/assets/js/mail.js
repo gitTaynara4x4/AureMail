@@ -512,6 +512,12 @@
     `;
   }
 
+  async function forceInboxSync(mailboxId) {
+    return api(`/api/webmail/mailboxes/${mailboxId}/sync`, {
+      method: "POST",
+    });
+  }
+
   async function loadMessages() {
     if (!state.domains.length) {
       renderNoDomainState();
@@ -851,6 +857,19 @@
         await loadContext();
         await loadPlatformMeForSidebar();
         await mountSidebar();
+
+        const mailbox = currentMailbox();
+        if (mailbox && state.currentFolder === "inbox") {
+          try {
+            await forceInboxSync(mailbox.id);
+          } catch (error) {
+            setFeedback(
+              `${error.message || "Falha na sincronização IMAP."} Exibindo mensagens locais salvas.`,
+              "error"
+            );
+          }
+        }
+
         await loadMessages();
         setFeedback("Webmail atualizado.", "success");
       } catch (error) {

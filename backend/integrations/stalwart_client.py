@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import ssl
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any
@@ -84,8 +85,13 @@ class StalwartClient:
             detail = ""
             try:
                 body = exc.read().decode("utf-8")
-                parsed = json.loads(body)
-                detail = parsed.get("detail") or parsed.get("message") or body
+                parsed = json.loads(body) if body else {}
+                detail = (
+                    parsed.get("detail")
+                    or parsed.get("message")
+                    or parsed.get("error")
+                    or body
+                )
             except Exception:
                 detail = str(exc)
 
@@ -108,14 +114,6 @@ class StalwartClient:
         return parsed.get("data", parsed)
 
     def _extract_created_id(self, value: Any) -> int:
-        """Extrai um ID de criação da resposta da API.
-
-        O Stalwart pode retornar:
-        - um inteiro/string direto
-        - um dict com {"id": ...}
-        - um dict aninhado com {"data": {"id": ...}}
-        """
-
         if value is None:
             raise StalwartProvisioningError(
                 "O servidor de e-mail não retornou ID ao criar o principal."
@@ -276,8 +274,10 @@ class StalwartClient:
         quota_bytes: int = 0,
         is_enabled: bool = True,
     ) -> int:
-        login_name = str(login_name or "").strip().lower()
         email = self._normalize_email(email)
+
+        # Força login pelo e-mail completo para evitar desalinhamento legado.
+        login_name = email
 
         existing = self.find_principal_by_email(email)
         if existing:
@@ -325,6 +325,7 @@ class StalwartClient:
         password: str | None = None,
         is_active: bool | None = None,
     ) -> None:
+        current_email = self._normalize_email(current_email)
         existing = self.find_principal_by_email(current_email)
         if not existing:
             raise StalwartProvisioningError(
@@ -332,6 +333,9 @@ class StalwartClient:
             )
 
         operations: list[dict[str, Any]] = []
+
+        if new_email is not None:
+            new_email = self._normalize_email(new_email)
 
         if new_login_name is not None:
             operations.append({
@@ -344,7 +348,7 @@ class StalwartClient:
             operations.append({
                 "action": "set",
                 "field": "emails",
-                "value": [self._normalize_email(new_email)],
+                "value": [new_email],
             })
 
         if display_name is not None:
@@ -379,11 +383,12 @@ class StalwartClient:
             self._request("PATCH", f"/principal/{existing['id']}", operations)
 
     def delete_mailbox_by_email(self, email: str) -> None:
+        email = self._normalize_email(email)
         existing = self.find_principal_by_email(email)
+
+        # Se já não existe no Stalwart, não trava a exclusão local.
         if not existing:
-            raise StalwartProvisioningError(
-                f"A caixa {email} não foi encontrada no servidor de e-mail."
-            )
+            return
 
         self._request("DELETE", f"/principal/{existing['id']}")
 

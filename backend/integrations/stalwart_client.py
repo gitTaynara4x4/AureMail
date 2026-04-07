@@ -383,10 +383,7 @@ class StalwartClient:
             self._request("PATCH", f"/principal/{existing['id']}", operations)
 
     def delete_mailbox_by_email(self, email: str) -> None:
-        email = self._normalize_email(email)
         existing = self.find_principal_by_email(email)
-
-        # Se já não existe no Stalwart, não trava a exclusão local.
         if not existing:
             return
 

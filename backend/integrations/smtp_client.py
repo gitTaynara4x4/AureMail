@@ -20,12 +20,16 @@ class AureMailSmtpClient:
         self.timeout = int((os.getenv("AUREMAIL_SMTP_TIMEOUT", "20") or "20").strip())
         self.use_starttls = (os.getenv("AUREMAIL_SMTP_STARTTLS", "true") or "true").strip().lower() == "true"
         self.use_ssl = (os.getenv("AUREMAIL_SMTP_SSL", "false") or "false").strip().lower() == "true"
+        self.verify_ssl = (os.getenv("AUREMAIL_SMTP_VERIFY_SSL", "true") or "true").strip().lower() == "true"
 
     def ensure_enabled(self) -> None:
         if not self.host:
-            raise SmtpDeliveryError(
-                "AUREMAIL_SMTP_HOST não está configurado no .env."
-            )
+            raise SmtpDeliveryError("AUREMAIL_SMTP_HOST não está configurado no .env.")
+
+    def _ssl_context(self):
+        if self.verify_ssl:
+            return ssl.create_default_context()
+        return ssl._create_unverified_context()  # noqa: S323
 
     def send_message(
         self,
@@ -48,26 +52,31 @@ class AureMailSmtpClient:
 
         message_id = make_msgid(domain=from_email.split("@", 1)[-1])
         msg["Message-ID"] = message_id
-
         msg.set_content(body_text or "")
 
         try:
             if self.use_ssl:
-                context = ssl.create_default_context()
-                with smtplib.SMTP_SSL(self.host, self.port, timeout=self.timeout, context=context) as server:
+                context = self._ssl_context()
+                with smtplib.SMTP_SSL(
+                    self.host,
+                    self.port,
+                    timeout=self.timeout,
+                    context=context,
+                ) as server:
                     server.login(username, password)
                     server.send_message(msg)
             else:
                 with smtplib.SMTP(self.host, self.port, timeout=self.timeout) as server:
                     server.ehlo()
                     if self.use_starttls:
-                        context = ssl.create_default_context()
+                        context = self._ssl_context()
                         server.starttls(context=context)
                         server.ehlo()
                     server.login(username, password)
                     server.send_message(msg)
 
             return str(message_id)
+
         except smtplib.SMTPException as exc:
             raise SmtpDeliveryError(f"Falha ao enviar e-mail via SMTP: {exc}") from exc
         except Exception as exc:

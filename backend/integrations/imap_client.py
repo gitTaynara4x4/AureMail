@@ -11,7 +11,6 @@ from email.header import decode_header, make_header
 from email.parser import BytesParser
 from email.utils import getaddresses, parseaddr, parsedate_to_datetime
 from html import unescape
-from typing import Any
 
 
 class ImapSyncError(RuntimeError):
@@ -49,7 +48,7 @@ def _normalize_email(value: str | None) -> str:
 
 
 def _extract_email_list(value: str | None) -> list[tuple[str | None, str]]:
-    pairs = []
+    pairs: list[tuple[str | None, str]] = []
     for name, email in getaddresses([value or ""]):
         email_norm = _normalize_email(email)
         if email_norm:
@@ -211,36 +210,56 @@ class AureMailImapClient:
         except Exception as exc:
             raise ImapSyncError(f"Não foi possível conectar ao IMAP: {exc}") from exc
 
-    def _auth_plain(self, client: imaplib.IMAP4, email_address: str, password: str):
-        auth_bytes = f"\0{email_address}\0{password}".encode("utf-8")
+    def _safe_logout(self, client) -> None:
+        try:
+            client.logout()
+        except Exception:
+            pass
 
-        def auth_callback(_challenge: bytes | None) -> bytes:
-            return auth_bytes
+    def _login_via_login(self, email_address: str, password: str):
+        client = self._connect()
+        try:
+            login_status, login_data = client.login(email_address, password)
+            if login_status != "OK":
+                raise ImapSyncError(f"Falha no login IMAP: {login_data}")
+            return client
+        except Exception:
+            self._safe_logout(client)
+            raise
 
-        return client.authenticate("PLAIN", auth_callback)
+    def _login_via_auth_plain(self, email_address: str, password: str):
+        client = self._connect()
+        try:
+            auth_bytes = f"\0{email_address}\0{password}".encode("utf-8")
 
-    def _login(self, client: imaplib.IMAP4, email_address: str, password: str) -> None:
+            def auth_callback(_challenge: bytes | None) -> bytes:
+                return auth_bytes
+
+            auth_status, auth_data = client.authenticate("PLAIN", auth_callback)
+            if auth_status != "OK":
+                raise ImapSyncError(f"Falha no AUTH PLAIN IMAP: {auth_data}")
+            return client
+        except Exception:
+            self._safe_logout(client)
+            raise
+
+    def _connect_authenticated(self, email_address: str, password: str):
+        login_error: Exception | None = None
         plain_error: Exception | None = None
 
         try:
-            auth_status, auth_data = self._auth_plain(client, email_address, password)
-            if auth_status == "OK":
-                return
-            plain_error = ImapSyncError(f"Falha no AUTH PLAIN IMAP: {auth_data}")
+            return self._login_via_login(email_address, password)
+        except Exception as exc:
+            login_error = exc
+
+        try:
+            return self._login_via_auth_plain(email_address, password)
         except Exception as exc:
             plain_error = exc
 
-        try:
-            login_status, login_data = client.login(email_address, password)
-            if login_status == "OK":
-                return
-            raise ImapSyncError(f"Falha no login IMAP: {login_data}")
-        except Exception as login_exc:
-            if plain_error is not None:
-                raise ImapSyncError(
-                    f"Falha ao autenticar no IMAP. AUTH PLAIN: {plain_error} | LOGIN: {login_exc}"
-                ) from login_exc
-            raise ImapSyncError(f"Falha no login IMAP: {login_exc}") from login_exc
+        raise ImapSyncError(
+            f"Falha ao autenticar no IMAP. LOGIN: {login_error} | AUTH PLAIN: {plain_error}"
+        )
 
     def fetch_inbox_messages(
         self,
@@ -250,90 +269,93 @@ class AureMailImapClient:
         limit: int | None = None,
     ) -> list[RemoteMessage]:
         sync_limit = int(limit or self.sync_limit or 30)
+        client = None
 
         try:
-            with self._connect() as client:
-                self._login(client, email_address, password)
+            client = self._connect_authenticated(email_address, password)
 
-                select_status, _ = client.select(self.mailbox_name, readonly=True)
-                if select_status != "OK":
-                    raise ImapSyncError(f"Não consegui abrir a caixa {self.mailbox_name}.")
+            select_status, _ = client.select(self.mailbox_name, readonly=True)
+            if select_status != "OK":
+                raise ImapSyncError(f"Não consegui abrir a caixa {self.mailbox_name}.")
 
-                search_status, search_data = client.uid("search", None, "ALL")
-                if search_status != "OK":
-                    raise ImapSyncError("Falha ao listar mensagens via IMAP.")
+            search_status, search_data = client.uid("search", None, "ALL")
+            if search_status != "OK":
+                raise ImapSyncError("Falha ao listar mensagens via IMAP.")
 
-                raw_uids = (search_data[0] or b"").decode("utf-8", errors="replace").strip()
-                if not raw_uids:
-                    return []
+            raw_uids = (search_data[0] or b"").decode("utf-8", errors="replace").strip()
+            if not raw_uids:
+                return []
 
-                all_uids = [uid for uid in raw_uids.split() if uid.strip()]
-                wanted_uids = all_uids[-sync_limit:]
+            all_uids = [uid for uid in raw_uids.split() if uid.strip()]
+            wanted_uids = all_uids[-sync_limit:]
 
-                items: list[RemoteMessage] = []
+            items: list[RemoteMessage] = []
 
-                for uid in wanted_uids:
-                    fetch_status, fetch_data = client.uid("fetch", uid, "(RFC822 FLAGS)")
-                    if fetch_status != "OK" or not fetch_data:
+            for uid in wanted_uids:
+                fetch_status, fetch_data = client.uid("fetch", uid, "(RFC822 FLAGS)")
+                if fetch_status != "OK" or not fetch_data:
+                    continue
+
+                message_bytes = None
+                flags_blob = b""
+
+                for part in fetch_data:
+                    if not isinstance(part, tuple) or len(part) < 2:
                         continue
+                    meta, payload = part
+                    if isinstance(meta, bytes):
+                        flags_blob = meta
+                    if isinstance(payload, (bytes, bytearray)):
+                        message_bytes = bytes(payload)
 
-                    message_bytes = None
-                    flags_blob = b""
+                if not message_bytes:
+                    continue
 
-                    for part in fetch_data:
-                        if not isinstance(part, tuple) or len(part) < 2:
-                            continue
-                        meta, payload = part
-                        if isinstance(meta, bytes):
-                            flags_blob = meta
-                        if isinstance(payload, (bytes, bytearray)):
-                            message_bytes = bytes(payload)
+                message = BytesParser(policy=policy.default).parsebytes(message_bytes)
 
-                    if not message_bytes:
-                        continue
+                from_name, from_email = parseaddr(message.get("From") or "")
+                from_name = _decode_header_value(from_name)
+                from_email = _normalize_email(from_email)
 
-                    message = BytesParser(policy=policy.default).parsebytes(message_bytes)
+                to_pairs = _extract_email_list(message.get("To"))
+                cc_pairs = _extract_email_list(message.get("Cc"))
 
-                    from_name, from_email = parseaddr(message.get("From") or "")
-                    from_name = _decode_header_value(from_name)
-                    from_email = _normalize_email(from_email)
+                to_email = ", ".join([email for _, email in to_pairs]) or email_address
+                cc_email = ", ".join([email for _, email in cc_pairs]) or None
 
-                    to_pairs = _extract_email_list(message.get("To"))
-                    cc_pairs = _extract_email_list(message.get("Cc"))
+                subject = _decode_header_value(message.get("Subject"))
+                body_text, body_html = _extract_text_bodies(message)
+                message_id_header = _decode_header_value(message.get("Message-Id")) or _build_fallback_message_id(uid, email_address)
+                sent_at = _parse_sent_at(message.get("Date"))
+                raw_source = message_bytes.decode("utf-8", errors="replace")
 
-                    to_email = ", ".join([email for _, email in to_pairs]) or email_address
-                    cc_email = ", ".join([email for _, email in cc_pairs]) or None
-
-                    subject = _decode_header_value(message.get("Subject"))
-                    body_text, body_html = _extract_text_bodies(message)
-                    message_id_header = _decode_header_value(message.get("Message-Id")) or _build_fallback_message_id(uid, email_address)
-                    sent_at = _parse_sent_at(message.get("Date"))
-                    raw_source = message_bytes.decode("utf-8", errors="replace")
-
-                    items.append(
-                        RemoteMessage(
-                            uid=uid,
-                            message_id_header=message_id_header,
-                            from_name=from_name,
-                            from_email=from_email or email_address,
-                            to_email=to_email,
-                            cc_email=cc_email,
-                            subject=subject,
-                            preview=_preview_from_body(body_text),
-                            body_text=body_text,
-                            body_html=body_html,
-                            raw_source=raw_source,
-                            sent_at=sent_at,
-                            is_read=_flags_to_is_read(flags_blob),
-                        )
+                items.append(
+                    RemoteMessage(
+                        uid=uid,
+                        message_id_header=message_id_header,
+                        from_name=from_name,
+                        from_email=from_email or email_address,
+                        to_email=to_email,
+                        cc_email=cc_email,
+                        subject=subject,
+                        preview=_preview_from_body(body_text),
+                        body_text=body_text,
+                        body_html=body_html,
+                        raw_source=raw_source,
+                        sent_at=sent_at,
+                        is_read=_flags_to_is_read(flags_blob),
                     )
+                )
 
-                return items
+            return items
 
         except ImapSyncError:
             raise
         except Exception as exc:
             raise ImapSyncError(f"Erro inesperado ao sincronizar IMAP: {exc}") from exc
+        finally:
+            if client is not None:
+                self._safe_logout(client)
 
 
 _imap_singleton: AureMailImapClient | None = None

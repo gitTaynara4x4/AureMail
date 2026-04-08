@@ -111,6 +111,16 @@ class StalwartClient:
         except Exception:
             return raw
 
+        # IMPORTANTE:
+        # O Stalwart às vezes devolve HTTP 200 com {"error":"notFound", ...}
+        # então isso precisa virar erro real aqui.
+        if isinstance(parsed, dict) and parsed.get("error"):
+            raise StalwartProvisioningError(
+                parsed.get("detail")
+                or parsed.get("message")
+                or f"{parsed.get('error')}: {parsed.get('item')}"
+            )
+
         return parsed.get("data", parsed)
 
     def _extract_created_id(self, value: Any) -> int:
@@ -175,6 +185,10 @@ class StalwartClient:
         return str(value or "").strip().lower()
 
     @staticmethod
+    def _normalize_name(value: str) -> str:
+        return str(value or "").strip().lower()
+
+    @staticmethod
     def _emails_from_principal(item: dict[str, Any]) -> list[str]:
         emails = item.get("emails") or []
 
@@ -192,12 +206,12 @@ class StalwartClient:
         return []
 
     def find_principal_by_name(self, name: str, principal_type: str | None = None) -> dict[str, Any] | None:
-        wanted = str(name or "").strip().lower()
+        wanted = self._normalize_name(name)
         if not wanted:
             return None
 
         for item in self.list_principals(principal_type=principal_type):
-            if str(item.get("name") or "").strip().lower() == wanted:
+            if self._normalize_name(item.get("name")) == wanted:
                 return item
 
         return None
@@ -212,6 +226,17 @@ class StalwartClient:
                 return item
 
         return None
+
+    def _principal_path_value(self, principal: dict[str, Any] | None, fallback: str) -> str:
+        """
+        O endpoint do Stalwart funcionou com o nome/login do principal
+        (ex.: teste@segsis.com.br), não com o id numérico.
+        """
+        if isinstance(principal, dict):
+            name = self._normalize_name(principal.get("name"))
+            if name:
+                return urllib.parse.quote(name, safe="@._-")
+        return urllib.parse.quote(str(fallback or "").strip().lower(), safe="@._-")
 
     def create_domain(self, domain_name: str, description: str | None = None) -> int:
         domain_name = str(domain_name or "").strip().lower()
@@ -255,14 +280,17 @@ class StalwartClient:
             {"action": "set", "field": "name", "value": new_domain_name},
             {"action": "set", "field": "description", "value": new_domain_name},
         ]
-        self._request("PATCH", f"/principal/{existing['id']}", operations)
+        principal_path = self._principal_path_value(existing, old_domain_name)
+        self._request("PATCH", f"/principal/{principal_path}", operations)
 
     def delete_domain(self, domain_name: str) -> None:
+        domain_name = str(domain_name or "").strip().lower()
         existing = self.find_principal_by_name(domain_name, principal_type="domain")
         if not existing:
             return
 
-        self._request("DELETE", f"/principal/{existing['id']}")
+        principal_path = self._principal_path_value(existing, domain_name)
+        self._request("DELETE", f"/principal/{principal_path}")
 
     def create_mailbox(
         self,
@@ -341,7 +369,7 @@ class StalwartClient:
             operations.append({
                 "action": "set",
                 "field": "name",
-                "value": str(new_login_name).strip().lower(),
+                "value": self._normalize_name(new_login_name),
             })
 
         if new_email is not None:
@@ -380,14 +408,17 @@ class StalwartClient:
             })
 
         if operations:
-            self._request("PATCH", f"/principal/{existing['id']}", operations)
+            principal_path = self._principal_path_value(existing, current_email)
+            self._request("PATCH", f"/principal/{principal_path}", operations)
 
     def delete_mailbox_by_email(self, email: str) -> None:
+        email = self._normalize_email(email)
         existing = self.find_principal_by_email(email)
         if not existing:
             return
 
-        self._request("DELETE", f"/principal/{existing['id']}")
+        principal_path = self._principal_path_value(existing, email)
+        self._request("DELETE", f"/principal/{principal_path}")
 
     def create_dkim_signature(
         self,

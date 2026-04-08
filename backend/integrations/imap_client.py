@@ -211,6 +211,37 @@ class AureMailImapClient:
         except Exception as exc:
             raise ImapSyncError(f"Não foi possível conectar ao IMAP: {exc}") from exc
 
+    def _auth_plain(self, client: imaplib.IMAP4, email_address: str, password: str):
+        auth_bytes = f"\0{email_address}\0{password}".encode("utf-8")
+
+        def auth_callback(_challenge: bytes | None) -> bytes:
+            return auth_bytes
+
+        return client.authenticate("PLAIN", auth_callback)
+
+    def _login(self, client: imaplib.IMAP4, email_address: str, password: str) -> None:
+        plain_error: Exception | None = None
+
+        try:
+            auth_status, auth_data = self._auth_plain(client, email_address, password)
+            if auth_status == "OK":
+                return
+            plain_error = ImapSyncError(f"Falha no AUTH PLAIN IMAP: {auth_data}")
+        except Exception as exc:
+            plain_error = exc
+
+        try:
+            login_status, login_data = client.login(email_address, password)
+            if login_status == "OK":
+                return
+            raise ImapSyncError(f"Falha no login IMAP: {login_data}")
+        except Exception as login_exc:
+            if plain_error is not None:
+                raise ImapSyncError(
+                    f"Falha ao autenticar no IMAP. AUTH PLAIN: {plain_error} | LOGIN: {login_exc}"
+                ) from login_exc
+            raise ImapSyncError(f"Falha no login IMAP: {login_exc}") from login_exc
+
     def fetch_inbox_messages(
         self,
         *,
@@ -222,9 +253,7 @@ class AureMailImapClient:
 
         try:
             with self._connect() as client:
-                login_status, login_data = client.login(email_address, password)
-                if login_status != "OK":
-                    raise ImapSyncError(f"Falha no login IMAP: {login_data}")
+                self._login(client, email_address, password)
 
                 select_status, _ = client.select(self.mailbox_name, readonly=True)
                 if select_status != "OK":

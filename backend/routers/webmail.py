@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
@@ -24,6 +25,7 @@ from backend.routers.webmail_auth import get_current_mail_actor
 from backend.utils.crypto import SecretCryptoError, decrypt_secret
 
 router = APIRouter(prefix="/api/webmail", tags=["Webmail"])
+logger = logging.getLogger("auremail.webmail")
 
 DEFAULT_FOLDERS = {
     "inbox": "Caixa de entrada",
@@ -421,6 +423,12 @@ def sync_mailbox_inbox(
     db: Session,
     mailbox: CaixaEmail,
 ) -> dict[str, int]:
+    logger.info(
+        "Iniciando sync IMAP | mailbox_id=%s | email=%s",
+        mailbox.id,
+        mailbox.email,
+    )
+
     changed = ensure_default_folders(db, mailbox)
     folder_map = get_folder_map(db, mailbox.id)
     inbox_folder = folder_map.get("inbox")
@@ -454,6 +462,14 @@ def sync_mailbox_inbox(
 
     if changed or created:
         db.commit()
+
+    logger.info(
+        "Sync IMAP concluída | mailbox_id=%s | email=%s | synced=%s | created=%s",
+        mailbox.id,
+        mailbox.email,
+        len(remote_messages),
+        created,
+    )
 
     return {
         "synced": len(remote_messages),
@@ -588,10 +604,34 @@ def sync_inbox_endpoint(
         }
     except SecretCryptoError as exc:
         db.rollback()
+        logger.exception(
+            "Erro de criptografia ao sincronizar IMAP | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except ImapSyncError as exc:
         db.rollback()
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        logger.exception(
+            "Erro IMAP ao sincronizar inbox | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
+        raise HTTPException(status_code=500, detail=f"Erro IMAP: {exc}") from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.exception(
+            "Erro inesperado ao sincronizar inbox | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Erro inesperado ao sincronizar inbox.",
+        ) from exc
 
 
 @router.get("/mailboxes/{mailbox_id}/messages")
@@ -623,10 +663,34 @@ def list_messages(
             sync_mailbox_inbox(db=db, mailbox=mailbox)
         except SecretCryptoError as exc:
             db.rollback()
+            logger.exception(
+                "Erro de criptografia ao sincronizar IMAP na listagem | mailbox_id=%s | email=%s",
+                mailbox.id,
+                mailbox.email,
+            )
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         except ImapSyncError as exc:
             db.rollback()
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
+            logger.exception(
+                "Erro IMAP ao sincronizar inbox na listagem | mailbox_id=%s | email=%s",
+                mailbox.id,
+                mailbox.email,
+            )
+            raise HTTPException(status_code=500, detail=f"Erro IMAP: {exc}") from exc
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception as exc:
+            db.rollback()
+            logger.exception(
+                "Erro inesperado ao sincronizar inbox na listagem | mailbox_id=%s | email=%s",
+                mailbox.id,
+                mailbox.email,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Erro inesperado ao sincronizar inbox.",
+            ) from exc
 
     query = (
         db.query(CaixaMensagem)
@@ -866,7 +930,31 @@ def compose_message(
 
     except SecretCryptoError as exc:
         db.rollback()
+        logger.exception(
+            "Erro de criptografia ao enviar e-mail | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except SmtpDeliveryError as exc:
         db.rollback()
+        logger.exception(
+            "Erro SMTP ao enviar e-mail | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.exception(
+            "Erro inesperado ao enviar e-mail | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Erro inesperado ao enviar e-mail.",
+        ) from exc

@@ -1,4 +1,6 @@
 from pathlib import Path
+import logging
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, RedirectResponse
@@ -18,6 +20,19 @@ from backend.routers.webmail_auth import (
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
 ASSETS_DIR = FRONTEND_DIR / "assets"
+
+
+LOG_LEVEL = (os.getenv("AUREMAIL_LOG_LEVEL", "WARNING") or "WARNING").upper()
+
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.WARNING),
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+
+logging.getLogger("auremail").setLevel(getattr(logging, LOG_LEVEL, logging.WARNING))
+logging.getLogger("auremail.caixas_email").setLevel(getattr(logging, LOG_LEVEL, logging.WARNING))
+logging.getLogger("auremail.stalwart").setLevel(getattr(logging, LOG_LEVEL, logging.WARNING))
+
 
 app = FastAPI(
     title="AureMail",

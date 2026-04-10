@@ -93,6 +93,17 @@ def serialize_mailbox(mailbox: CaixaEmail) -> dict:
     }
 
 
+def get_client_debug_snapshot(client) -> dict:
+    return {
+        "enabled": bool(getattr(client, "enabled", False)),
+        "base_url": getattr(client, "base_url", None),
+        "verify_ssl": getattr(client, "verify_ssl", None),
+        "timeout": getattr(client, "timeout", None),
+        "auth_mode": getattr(client, "auth_mode", None),
+        "default_role": getattr(client, "default_role", None),
+    }
+
+
 def get_domain_for_user(db: Session, domain_id: int, empresa_id: int) -> Dominio:
     domain = (
         db.query(Dominio)
@@ -103,6 +114,11 @@ def get_domain_for_user(db: Session, domain_id: int, empresa_id: int) -> Dominio
         .first()
     )
     if not domain:
+        logger.warning(
+            "Domínio não encontrado para usuário | domain_id=%s | empresa_id=%s",
+            domain_id,
+            empresa_id,
+        )
         raise HTTPException(status_code=404, detail="Domínio não encontrado.")
     return domain
 
@@ -118,6 +134,11 @@ def get_mailbox_for_user(db: Session, mailbox_id: int, empresa_id: int) -> Caixa
         .first()
     )
     if not mailbox:
+        logger.warning(
+            "Caixa não encontrada para usuário | mailbox_id=%s | empresa_id=%s",
+            mailbox_id,
+            empresa_id,
+        )
         raise HTTPException(status_code=404, detail="Caixa de e-mail não encontrada.")
     return mailbox
 
@@ -151,6 +172,13 @@ def ensure_default_folders(db: Session, mailbox: CaixaEmail) -> None:
 
     for folder_name, slug in DEFAULT_FOLDERS:
         if slug not in existing:
+            logger.warning(
+                "Criando pasta padrão | mailbox_id=%s | email=%s | slug=%s | name=%s",
+                mailbox.id,
+                mailbox.email,
+                slug,
+                folder_name,
+            )
             db.add(
                 Pasta(
                     caixa_email_id=mailbox.id,
@@ -163,6 +191,11 @@ def ensure_default_folders(db: Session, mailbox: CaixaEmail) -> None:
 
     if changed:
         db.flush()
+        logger.warning(
+            "Pastas padrão garantidas | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
 
 
 def quota_mb_to_bytes(value: int) -> int:
@@ -197,6 +230,12 @@ def list_mailboxes(
     current_user: UsuarioPlataforma = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    logger.warning(
+        "Listando caixas | empresa_id=%s | user_id=%s",
+        current_user.empresa_id,
+        current_user.id,
+    )
+
     items = (
         db.query(CaixaEmail)
         .options(joinedload(CaixaEmail.dominio))
@@ -207,6 +246,12 @@ def list_mailboxes(
             CaixaEmail.id.asc(),
         )
         .all()
+    )
+
+    logger.warning(
+        "Caixas listadas | empresa_id=%s | total=%s",
+        current_user.empresa_id,
+        len(items),
     )
 
     return {
@@ -222,16 +267,33 @@ def create_mailbox(
     current_user: UsuarioPlataforma = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    logger.warning(
+        "Solicitação para criar caixa | empresa_id=%s | user_id=%s | dominio_id=%s | local_part=%s | display_name=%s | quota_mb=%s | is_active=%s | is_admin=%s | password_sent=%s",
+        current_user.empresa_id,
+        current_user.id,
+        data.dominio_id,
+        data.local_part,
+        data.display_name,
+        data.quota_mb,
+        data.is_active,
+        data.is_admin,
+        data.password is not None,
+    )
+
     domain = get_domain_for_user(db, data.dominio_id, current_user.empresa_id)
 
     local_part = normalize_local_part(data.local_part)
+    logger.warning("Local part normalizado | input=%s | normalized=%s", data.local_part, local_part)
+
     if not validate_local_part(local_part):
+        logger.warning("Local part inválido | normalized=%s", local_part)
         raise HTTPException(
             status_code=400,
             detail="Local part inválido. Use letras, números, ponto, hífen ou underline.",
         )
 
     email = f"{local_part}@{domain.name}"
+    logger.warning("E-mail calculado para nova caixa | email=%s | domain=%s", email, domain.name)
 
     existing = get_mailbox_by_email_for_company(
         db,
@@ -239,14 +301,28 @@ def create_mailbox(
         email=email,
     )
     if existing:
+        logger.warning(
+            "Tentativa de criar caixa já existente no banco | email=%s | existing_id=%s",
+            email,
+            existing.id,
+        )
         raise HTTPException(status_code=409, detail="Essa caixa já está cadastrada.")
 
     display_name = normalize_display_name(data.display_name)
     plain_password, password_hash = build_mailbox_password(data.password)
 
+    logger.warning(
+        "Senha da caixa preparada | email=%s | generated_password=%s | display_name=%s",
+        email,
+        data.password is None,
+        display_name,
+    )
+
     try:
         smtp_password_enc = encrypt_secret(plain_password)
+        logger.warning("Senha criptografada com sucesso | email=%s", email)
     except SecretCryptoError as exc:
+        logger.exception("Erro ao criptografar senha | email=%s", email)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     mailbox = CaixaEmail(
@@ -265,9 +341,21 @@ def create_mailbox(
 
     try:
         db.flush()
+        logger.warning(
+            "Caixa criada localmente com flush | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
+
         ensure_default_folders(db, mailbox)
 
         client = get_stalwart_client()
+        logger.warning(
+            "Snapshot do client antes do create remoto | email=%s | client=%s",
+            email,
+            get_client_debug_snapshot(client),
+        )
+
         if client.enabled:
             client.create_mailbox(
                 login_name=email,
@@ -277,14 +365,24 @@ def create_mailbox(
                 quota_bytes=quota_mb_to_bytes(data.quota_mb),
                 is_enabled=bool(data.is_active),
             )
+            logger.warning("Create remoto concluído | email=%s", email)
+        else:
+            logger.warning("Client Stalwart desativado; create apenas local | email=%s", email)
 
         db.commit()
+        logger.warning(
+            "Commit concluído no create de caixa | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
         db.refresh(mailbox)
 
     except IntegrityError:
+        logger.exception("IntegrityError ao criar caixa | email=%s", email)
         db.rollback()
         raise HTTPException(status_code=409, detail="Essa caixa já está cadastrada.")
     except StalwartProvisioningError as exc:
+        logger.exception("Erro Stalwart ao criar caixa | email=%s | error=%s", email, exc)
         db.rollback()
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -303,17 +401,54 @@ def update_mailbox(
     current_user: UsuarioPlataforma = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    logger.warning(
+        "Solicitação para atualizar caixa | mailbox_id=%s | empresa_id=%s | user_id=%s | payload=%s",
+        mailbox_id,
+        current_user.empresa_id,
+        current_user.id,
+        {
+            "dominio_id": data.dominio_id,
+            "local_part": data.local_part,
+            "display_name": data.display_name,
+            "quota_mb": data.quota_mb,
+            "is_active": data.is_active,
+            "is_admin": data.is_admin,
+        },
+    )
+
     mailbox = get_mailbox_for_user(db, mailbox_id, current_user.empresa_id)
     old_email = mailbox.email
 
+    logger.warning(
+        "Caixa carregada para update | mailbox_id=%s | old_email=%s | dominio_id=%s | local_part=%s",
+        mailbox.id,
+        old_email,
+        mailbox.dominio_id,
+        mailbox.local_part,
+    )
+
     if data.dominio_id is not None and int(data.dominio_id) != int(mailbox.dominio_id):
         new_domain = get_domain_for_user(db, data.dominio_id, current_user.empresa_id)
+        logger.warning(
+            "Alterando domínio da caixa | mailbox_id=%s | old_domain_id=%s | new_domain_id=%s | new_domain_name=%s",
+            mailbox.id,
+            mailbox.dominio_id,
+            new_domain.id,
+            new_domain.name,
+        )
         mailbox.dominio_id = new_domain.id
         mailbox.dominio = new_domain
 
     if data.local_part is not None:
         new_local_part = normalize_local_part(data.local_part)
+        logger.warning(
+            "Novo local_part recebido | mailbox_id=%s | input=%s | normalized=%s",
+            mailbox.id,
+            data.local_part,
+            new_local_part,
+        )
         if not validate_local_part(new_local_part):
+            logger.warning("Local part inválido no update | mailbox_id=%s | normalized=%s", mailbox.id, new_local_part)
             raise HTTPException(
                 status_code=400,
                 detail="Local part inválido. Use letras, números, ponto, hífen ou underline.",
@@ -324,6 +459,12 @@ def update_mailbox(
         mailbox.dominio = get_domain_for_user(db, mailbox.dominio_id, current_user.empresa_id)
 
     new_email = f"{mailbox.local_part}@{mailbox.dominio.name}"
+    logger.warning(
+        "Novo e-mail calculado para update | mailbox_id=%s | old_email=%s | new_email=%s",
+        mailbox.id,
+        old_email,
+        new_email,
+    )
 
     existing = get_mailbox_by_email_for_company(
         db,
@@ -332,6 +473,12 @@ def update_mailbox(
         except_id=mailbox.id,
     )
     if existing:
+        logger.warning(
+            "Conflito de e-mail no update | mailbox_id=%s | new_email=%s | conflict_id=%s",
+            mailbox.id,
+            new_email,
+            existing.id,
+        )
         raise HTTPException(status_code=409, detail="Já existe uma caixa com esse endereço.")
 
     mailbox.email = new_email
@@ -345,10 +492,33 @@ def update_mailbox(
     if data.is_admin is not None:
         mailbox.is_admin = bool(data.is_admin)
 
+    logger.warning(
+        "Estado final local antes do flush no update | mailbox_id=%s | email=%s | display_name=%s | quota_mb=%s | is_active=%s | is_admin=%s",
+        mailbox.id,
+        mailbox.email,
+        mailbox.display_name,
+        mailbox.quota_mb,
+        mailbox.is_active,
+        mailbox.is_admin,
+    )
+
     try:
         db.flush()
+        logger.warning(
+            "Flush concluído no update local | mailbox_id=%s | old_email=%s | new_email=%s",
+            mailbox.id,
+            old_email,
+            mailbox.email,
+        )
 
         client = get_stalwart_client()
+        logger.warning(
+            "Snapshot do client antes do update remoto | mailbox_id=%s | email=%s | client=%s",
+            mailbox.id,
+            mailbox.email,
+            get_client_debug_snapshot(client),
+        )
+
         if client.enabled:
             client.update_mailbox_by_email(
                 old_email,
@@ -358,14 +528,44 @@ def update_mailbox(
                 quota_bytes=quota_mb_to_bytes(mailbox.quota_mb),
                 is_active=bool(mailbox.is_active),
             )
+            logger.warning(
+                "Update remoto concluído | mailbox_id=%s | old_email=%s | new_email=%s",
+                mailbox.id,
+                old_email,
+                mailbox.email,
+            )
+        else:
+            logger.warning(
+                "Client Stalwart desativado; update apenas local | mailbox_id=%s | email=%s",
+                mailbox.id,
+                mailbox.email,
+            )
 
         db.commit()
+        logger.warning(
+            "Commit concluído no update | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
         db.refresh(mailbox)
 
     except IntegrityError:
+        logger.exception(
+            "IntegrityError no update de caixa | mailbox_id=%s | old_email=%s | new_email=%s",
+            mailbox_id,
+            old_email,
+            mailbox.email,
+        )
         db.rollback()
         raise HTTPException(status_code=409, detail="Já existe uma caixa com esse endereço.")
     except StalwartProvisioningError as exc:
+        logger.exception(
+            "Erro Stalwart no update de caixa | mailbox_id=%s | old_email=%s | new_email=%s | error=%s",
+            mailbox_id,
+            old_email,
+            mailbox.email,
+            exc,
+        )
         db.rollback()
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -383,31 +583,76 @@ def set_mailbox_password(
     current_user: UsuarioPlataforma = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    logger.warning(
+        "Solicitação para trocar senha da caixa | mailbox_id=%s | empresa_id=%s | user_id=%s | password_len=%s",
+        mailbox_id,
+        current_user.empresa_id,
+        current_user.id,
+        len((data.password or "").strip()),
+    )
+
     mailbox = get_mailbox_for_user(db, mailbox_id, current_user.empresa_id)
     new_password = (data.password or "").strip()
 
     if len(new_password) < 8:
+        logger.warning("Senha curta demais no set-password | mailbox_id=%s", mailbox_id)
         raise HTTPException(status_code=400, detail="A senha precisa ter pelo menos 8 caracteres.")
 
     try:
         mailbox.password_hash = hash_password(new_password)
         mailbox.smtp_password_enc = encrypt_secret(new_password)
 
+        logger.warning(
+            "Senha atualizada localmente | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
+
         client = get_stalwart_client()
+        logger.warning(
+            "Snapshot do client antes do update remoto de senha | mailbox_id=%s | email=%s | client=%s",
+            mailbox.id,
+            mailbox.email,
+            get_client_debug_snapshot(client),
+        )
+
         if client.enabled:
             client.update_mailbox_by_email(
                 mailbox.email,
                 new_login_name=mailbox.email,
                 password=new_password,
             )
+            logger.warning(
+                "Senha atualizada remotamente | mailbox_id=%s | email=%s",
+                mailbox.id,
+                mailbox.email,
+            )
+        else:
+            logger.warning(
+                "Client Stalwart desativado; troca de senha apenas local | mailbox_id=%s | email=%s",
+                mailbox.id,
+                mailbox.email,
+            )
 
         db.commit()
+        logger.warning(
+            "Commit concluído no set-password | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
         db.refresh(mailbox)
 
     except SecretCryptoError as exc:
+        logger.exception("Erro ao criptografar senha no set-password | mailbox_id=%s", mailbox_id)
         db.rollback()
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except StalwartProvisioningError as exc:
+        logger.exception(
+            "Erro Stalwart no set-password | mailbox_id=%s | email=%s | error=%s",
+            mailbox_id,
+            mailbox.email,
+            exc,
+        )
         db.rollback()
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -428,28 +673,43 @@ def delete_mailbox(
     deleted_item = serialize_mailbox(mailbox)
     mailbox_email = mailbox.email
 
-    logger.info(
-        "Solicitação para excluir caixa | mailbox_id=%s | empresa_id=%s | email=%s",
+    logger.warning(
+        "Solicitação para excluir caixa | mailbox_id=%s | empresa_id=%s | user_id=%s | email=%s | deleted_item=%s",
         mailbox_id,
         current_user.empresa_id,
+        current_user.id,
         mailbox_email,
+        deleted_item,
     )
 
     try:
         db.delete(mailbox)
         db.flush()
 
-        logger.info(
-            "Caixa removida localmente, iniciando exclusão remota | mailbox_id=%s | email=%s",
+        logger.warning(
+            "Caixa removida localmente com flush | mailbox_id=%s | email=%s",
             mailbox_id,
             mailbox_email,
         )
 
         client = get_stalwart_client()
+        logger.warning(
+            "Snapshot do client antes do delete remoto | mailbox_id=%s | email=%s | client=%s",
+            mailbox_id,
+            mailbox_email,
+            get_client_debug_snapshot(client),
+        )
+
         if client.enabled:
+            logger.warning(
+                "Iniciando delete remoto da caixa | mailbox_id=%s | email=%s | base_url=%s",
+                mailbox_id,
+                mailbox_email,
+                getattr(client, "base_url", None),
+            )
             client.delete_mailbox_by_email(mailbox_email)
-            logger.info(
-                "Exclusão remota concluída | mailbox_id=%s | email=%s",
+            logger.warning(
+                "Delete remoto concluído sem exceção | mailbox_id=%s | email=%s",
                 mailbox_id,
                 mailbox_email,
             )
@@ -462,8 +722,8 @@ def delete_mailbox(
 
         db.commit()
 
-        logger.info(
-            "Exclusão confirmada com commit | mailbox_id=%s | empresa_id=%s | email=%s",
+        logger.warning(
+            "Commit concluído no delete | mailbox_id=%s | empresa_id=%s | email=%s",
             mailbox_id,
             current_user.empresa_id,
             mailbox_email,
@@ -472,14 +732,27 @@ def delete_mailbox(
     except StalwartProvisioningError as exc:
         detail = str(exc)
 
+        logger.error(
+            "Erro Stalwart durante delete | mailbox_id=%s | email=%s | detail=%s | remote_absent=%s",
+            mailbox_id,
+            mailbox_email,
+            detail,
+            is_remote_absent_error(detail),
+        )
+
         if is_remote_absent_error(detail):
             logger.warning(
-                "Caixa não encontrada remotamente; mantendo exclusão local | mailbox_id=%s | email=%s | detail=%s",
+                "Caixa ausente remotamente; mantendo exclusão local | mailbox_id=%s | email=%s | detail=%s",
                 mailbox_id,
                 mailbox_email,
                 detail,
             )
             db.commit()
+            logger.warning(
+                "Commit concluído após tolerar ausência remota | mailbox_id=%s | email=%s",
+                mailbox_id,
+                mailbox_email,
+            )
             return {
                 "success": True,
                 "message": "Caixa removida com sucesso.",
@@ -487,7 +760,7 @@ def delete_mailbox(
             }
 
         logger.error(
-            "Falha ao excluir caixa no servidor remoto; rollback executado | mailbox_id=%s | email=%s | detail=%s",
+            "Rollback do delete por falha remota | mailbox_id=%s | email=%s | detail=%s",
             mailbox_id,
             mailbox_email,
             detail,

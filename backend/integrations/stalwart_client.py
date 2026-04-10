@@ -68,6 +68,33 @@ class StalwartClient:
             return None
         return ssl._create_unverified_context()  # noqa: S323
 
+    @staticmethod
+    def _error_text(value: Any) -> str:
+        return str(value or "").strip().lower()
+
+    @classmethod
+    def _is_absent_error(cls, value: Any) -> bool:
+        text = cls._error_text(value)
+        if not text:
+            return False
+
+        keywords = (
+            "not found",
+            "não encontrado",
+            "não encontrada",
+            "não foi encontrado",
+            "não foi encontrada",
+            "does not exist",
+            "doesn't exist",
+            "already absent",
+            "principal not found",
+            "mailbox not found",
+            "account not found",
+            "unknown account",
+            "não existe no servidor de e-mail",
+        )
+        return any(keyword in text for keyword in keywords)
+
     def _request(self, method: str, path: str, payload: Any | None = None) -> Any:
         url = self._build_url(path)
         data = json.dumps(payload).encode("utf-8") if payload is not None else None
@@ -428,10 +455,9 @@ class StalwartClient:
         normalized_email = self._normalize_email(email)
         existing = self.find_mailbox_principal(normalized_email)
 
+        # Exclusão idempotente: se já não existe no Stalwart, está tudo certo.
         if not existing:
-            raise StalwartProvisioningError(
-                f"A caixa {normalized_email} não foi encontrada no servidor de e-mail."
-            )
+            return
 
         principal_id = existing.get("id")
         principal_name = str(existing.get("name") or "").strip()
@@ -441,29 +467,40 @@ class StalwartClient:
                 f"Não foi possível identificar o principal da caixa {normalized_email} no servidor de e-mail."
             )
 
-        first_error: Exception | None = None
+        id_error: StalwartProvisioningError | None = None
+        name_error: StalwartProvisioningError | None = None
 
         if principal_id is not None:
             try:
                 self._request("DELETE", f"/principal/{principal_id}")
                 return
             except StalwartProvisioningError as exc:
-                first_error = exc
+                id_error = exc
 
         if principal_name:
             try:
                 self._request("DELETE", f"/principal/{urllib.parse.quote(principal_name, safe='')}")
                 return
             except StalwartProvisioningError as exc:
-                if first_error is None:
-                    first_error = exc
+                name_error = exc
 
-        if first_error is not None:
-            raise first_error
+        errors = [err for err in (id_error, name_error) if err is not None]
 
-        raise StalwartProvisioningError(
-            f"Não foi possível remover a caixa {normalized_email} no servidor de e-mail."
-        )
+        if not errors:
+            return
+
+        # Se tudo que voltou foi "já não existe", considerar sucesso.
+        if all(self._is_absent_error(err) for err in errors):
+            return
+
+        # Se só houve uma tentativa e ela indicou ausência, também considerar sucesso.
+        if id_error is not None and name_error is None and self._is_absent_error(id_error):
+            return
+
+        if name_error is not None and id_error is None and self._is_absent_error(name_error):
+            return
+
+        raise errors[0]
 
     def create_dkim_signature(
         self,

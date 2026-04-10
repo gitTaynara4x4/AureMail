@@ -178,12 +178,16 @@ def is_remote_absent_error(message: str) -> bool:
         "not found",
         "não encontrado",
         "não encontrada",
+        "não foi encontrado",
+        "não foi encontrada",
         "does not exist",
+        "doesn't exist",
         "already absent",
         "principal not found",
         "mailbox not found",
         "account not found",
         "unknown account",
+        "não existe no servidor de e-mail",
     )
     return any(keyword in text for keyword in keywords)
 

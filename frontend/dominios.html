@@ -27,238 +27,302 @@
     <aside id="sidebarMount" class="am-sidebar-mount"></aside>
 
     <main class="app-main">
-      <header class="page-head">
-        <div class="page-head__copy">
-          <h1>Gerenciar Domínios</h1>
-          <p>
-            Cadastre qualquer domínio da empresa e siga o guia de DNS para ativar
-            o ambiente de e-mail real no AureMail.
-          </p>
-        </div>
-
-        <div class="page-head__actions">
-          <button type="button" class="btn btn-secondary" id="refreshDomainsBtn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 2v6h-6" />
-              <path d="M3 12a9 9 0 1 0 2.1-5.9L3 8" />
-              <path d="M3 2v6h6" />
-            </svg>
-            Atualizar
-          </button>
-
-          <button type="button" class="btn btn-secondary" id="goPanelBtn">
-            Voltar ao painel
-          </button>
-        </div>
-      </header>
-
-      <div class="divider"></div>
-
-      <section class="hint-grid">
-        <article class="data-card hint-card">
-          <header class="data-card__header">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M12 16v-4"></path>
-              <path d="M12 8h.01"></path>
-            </svg>
-            <h3>Antes de cadastrar</h3>
-          </header>
-
-          <div class="card-body">
-            <ul class="hint-list">
-              <li>Digite apenas o domínio principal. Ex.: <strong>empresa.com.br</strong></li>
-              <li>Não use <strong>http://</strong>, <strong>https://</strong>, <strong>www</strong> ou <strong>mail</strong>.</li>
-              <li>Depois de salvar, o AureMail gera os registros DNS para o cliente copiar.</li>
-              <li>O sistema aceita qualquer domínio real da empresa.</li>
-            </ul>
-          </div>
-        </article>
-
-        <article class="data-card env-card">
-          <header class="data-card__header">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2v20"></path>
-              <path d="M2 5h20"></path>
-              <path d="M2 19h20"></path>
-            </svg>
-            <h3>Base técnica usada pelo guia</h3>
-          </header>
-
-          <div class="card-body">
-            <div class="kv-list">
-              <div class="kv-item">
-                <span>Subdomínio do app</span>
-                <strong id="envAppSubdomain">Carregando...</strong>
-              </div>
-              <div class="kv-item">
-                <span>Subdomínio do servidor de e-mail</span>
-                <strong id="envMailSubdomain">Carregando...</strong>
-              </div>
-              <div class="kv-item">
-                <span>IP público configurado</span>
-                <strong id="envPublicIp">Carregando...</strong>
-              </div>
-              <div class="kv-item">
-                <span>Selector DKIM</span>
-                <strong id="envDkimSelector">Carregando...</strong>
-              </div>
+      <div class="page-shell">
+        <header class="page-head">
+          <div class="page-head__copy">
+            <div class="status-inline">
+              <span class="status-inline-dot"></span>
+              Configuração de domínios
             </div>
+
+            <h1>Gerenciar domínios</h1>
+
+            <p>
+              Cadastre qualquer domínio da empresa e acompanhe o guia de DNS
+              em uma interface mais limpa, direta e fácil de operar.
+            </p>
           </div>
-        </article>
-      </section>
 
-      <div class="divider"></div>
-
-      <section class="page-grid">
-        <article class="data-card form-card">
-          <header class="data-card__header">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 8v8" />
-              <path d="M8 12h8" />
-            </svg>
-            <h3>Adicionar novo domínio</h3>
-          </header>
-
-          <div class="card-body">
-            <form id="domainForm" novalidate>
-              <div class="field">
-                <label for="domainName">Nome do domínio</label>
-                <input
-                  type="text"
-                  id="domainName"
-                  name="domainName"
-                  placeholder="exemplo.com.br"
-                  maxlength="255"
-                  required
-                />
-                <small class="field-help">
-                  Exemplo correto: <strong>empresa.com.br</strong>
-                </small>
-              </div>
-
-              <div class="field">
-                <div class="label-with-help">
-                  <label for="domainStatus">Status inicial</label>
-                  <button
-                    type="button"
-                    class="help-trigger"
-                    data-help-topic="status"
-                    aria-label="Explicar status inicial"
-                    title="O que é isso?"
-                  >?</button>
-                </div>
-
-                <div class="select-wrapper">
-                  <select id="domainStatus" name="domainStatus">
-                    <option value="pending">Pendente (aguardando DNS)</option>
-                    <option value="active">Ativo</option>
-                    <option value="inactive">Inativo</option>
-                  </select>
-                  <svg class="select-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </div>
-
-                <small class="field-help">
-                  Normalmente você vai começar com <strong>Pendente</strong>.
-                </small>
-              </div>
-
-              <label class="checkbox-row" for="domainPrimary">
-                <input type="checkbox" id="domainPrimary" name="domainPrimary" />
-                <span class="checkbox-box">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white"
-                    stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </span>
-
-                <span class="checkbox-text-wrap">
-                  <span class="checkbox-text">Definir como domínio principal</span>
-                  <button
-                    type="button"
-                    class="help-trigger inline-help"
-                    data-help-topic="primary"
-                    aria-label="Explicar domínio principal"
-                    title="O que é isso?"
-                  >?</button>
-                </span>
-              </label>
-
-              <button type="submit" class="btn btn-primary w-full mt-4" id="createDomainBtn">
-                Salvar domínio
-              </button>
-
-              <div class="form-message" id="domainFormMessage"></div>
-            </form>
-          </div>
-        </article>
-
-        <article class="data-card list-card">
-          <header class="data-card__header justify-between">
-            <div class="header-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-                <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-                <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+          <div class="page-head__actions">
+            <button type="button" class="btn btn-secondary" id="refreshDomainsBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 2v6h-6" />
+                <path d="M3 12a9 9 0 1 0 2.1-5.9L3 8" />
+                <path d="M3 2v6h6" />
               </svg>
-              <h3>Domínios cadastrados</h3>
-            </div>
-            <span class="badge" id="domainsCount">0 itens</span>
-          </header>
+              Atualizar
+            </button>
 
-          <div class="domain-list" id="domainList">
-            <div class="empty-note">
-              Carregando domínios...
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <div class="divider"></div>
-
-      <section class="details-section">
-        <article class="data-card details-card">
-          <header class="data-card__header justify-between">
-            <div class="header-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 3h18v18H3z" />
-                <path d="M8 8h8" />
-                <path d="M8 12h8" />
-                <path d="M8 16h5" />
+            <button type="button" class="btn btn-secondary" id="openCreateDomainModalBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 8v8"></path>
+                <path d="M8 12h8"></path>
               </svg>
-              <h3>Guia de DNS e ativação do domínio</h3>
-            </div>
+              Novo domínio
+            </button>
 
-            <div class="details-actions">
-              <button type="button" class="btn btn-secondary" id="verifyDnsBtn" disabled>
-                Verificar DNS
-              </button>
-              <button type="button" class="btn btn-secondary" id="goMailboxesBtn" disabled>
-                Ir para caixas
-              </button>
-            </div>
-          </header>
-
-          <div class="page-feedback" id="pageFeedback"></div>
-
-          <div class="details-body" id="selectedDomainPanel">
-            <div class="empty-note">
-              Selecione um domínio na lista para ver os registros DNS e o guia por provedor.
-            </div>
+            <button type="button" class="btn btn-primary" id="goPanelBtn">
+              Voltar ao painel
+            </button>
           </div>
-        </article>
-      </section>
+        </header>
+
+        <div class="divider"></div>
+
+        <section class="hint-grid">
+          <article class="data-card hint-card">
+            <header class="data-card__header">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 16v-4"></path>
+                <path d="M12 8h.01"></path>
+              </svg>
+              <h3>Antes de cadastrar</h3>
+            </header>
+
+            <div class="card-body">
+              <ul class="hint-list">
+                <li>Digite apenas o domínio principal. Ex.: <strong>empresa.com.br</strong></li>
+                <li>Não use <strong>http://</strong>, <strong>https://</strong>, <strong>www</strong> ou <strong>mail</strong>.</li>
+                <li>Depois de salvar, o AureMail gera os registros DNS para o cliente copiar.</li>
+                <li>O sistema aceita qualquer domínio real da empresa.</li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="data-card env-card">
+            <header class="data-card__header">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v20"></path>
+                <path d="M2 5h20"></path>
+                <path d="M2 19h20"></path>
+              </svg>
+              <h3>Base técnica do ambiente</h3>
+            </header>
+
+            <div class="card-body">
+              <div class="kv-list">
+                <div class="kv-item">
+                  <span>Subdomínio do app</span>
+                  <strong id="envAppSubdomain">Carregando...</strong>
+                </div>
+                <div class="kv-item">
+                  <span>Subdomínio do servidor de e-mail</span>
+                  <strong id="envMailSubdomain">Carregando...</strong>
+                </div>
+                <div class="kv-item">
+                  <span>IP público configurado</span>
+                  <strong id="envPublicIp">Carregando...</strong>
+                </div>
+                <div class="kv-item">
+                  <span>Selector DKIM</span>
+                  <strong id="envDkimSelector">Carregando...</strong>
+                </div>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <div class="divider"></div>
+
+        <section class="page-grid page-grid--single">
+          <article class="data-card list-card">
+            <header class="data-card__header justify-between">
+              <div class="header-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+                  <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+                  <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+                </svg>
+                <h3>Domínios cadastrados</h3>
+              </div>
+
+              <div class="list-card__actions">
+                <span class="badge" id="domainsCount">0 itens</span>
+                <button type="button" class="btn btn-secondary btn-small" id="openCreateDomainModalBtnInline">
+                  Novo domínio
+                </button>
+              </div>
+            </header>
+
+            <div class="domain-list" id="domainList">
+              <div class="empty-note">
+                Carregando domínios...
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <div class="divider"></div>
+
+        <section class="details-section">
+          <article class="data-card details-card">
+            <header class="data-card__header justify-between">
+              <div class="header-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 3h18v18H3z" />
+                  <path d="M8 8h8" />
+                  <path d="M8 12h8" />
+                  <path d="M8 16h5" />
+                </svg>
+                <h3>Guia de DNS e ativação</h3>
+              </div>
+
+              <div class="details-actions">
+                <button type="button" class="btn btn-secondary" id="openGuideModalBtn" disabled>
+                  Abrir guia
+                </button>
+                <button type="button" class="btn btn-secondary" id="verifyDnsBtn" disabled>
+                  Verificar DNS
+                </button>
+                <button type="button" class="btn btn-secondary" id="goMailboxesBtn" disabled>
+                  Ir para caixas
+                </button>
+              </div>
+            </header>
+
+            <div class="page-feedback" id="pageFeedback"></div>
+
+            <div class="details-body" id="selectedDomainPanel">
+              <div class="empty-note">
+                Selecione um domínio na lista para ver o resumo e abrir o guia passo a passo.
+              </div>
+            </div>
+          </article>
+        </section>
+      </div>
     </main>
+  </div>
+
+  <!-- Modal novo domínio -->
+  <div class="modal-overlay" id="domainModalOverlay"></div>
+
+  <div class="modal-shell" id="domainModal" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <span class="modal-eyebrow">Novo domínio</span>
+          <h3>Adicionar domínio</h3>
+          <p>Cadastre o domínio principal da empresa para gerar o guia DNS.</p>
+        </div>
+
+        <button type="button" class="modal-close" id="closeDomainModalBtn" aria-label="Fechar modal">
+          ×
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form id="domainForm" novalidate>
+          <div class="field">
+            <label for="domainName">Nome do domínio</label>
+            <input
+              type="text"
+              id="domainName"
+              name="domainName"
+              placeholder="exemplo.com.br"
+              maxlength="255"
+              required
+            />
+            <small class="field-help">
+              Exemplo correto: <strong>empresa.com.br</strong>
+            </small>
+          </div>
+
+          <div class="field">
+            <div class="label-with-help">
+              <label for="domainStatus">Status inicial</label>
+              <button
+                type="button"
+                class="help-trigger"
+                data-help-topic="status"
+                aria-label="Explicar status inicial"
+                title="O que é isso?"
+              >?</button>
+            </div>
+
+            <div class="select-wrapper">
+              <select id="domainStatus" name="domainStatus">
+                <option value="pending">Pendente (aguardando DNS)</option>
+                <option value="active">Ativo</option>
+                <option value="inactive">Inativo</option>
+              </select>
+              <svg class="select-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </div>
+
+            <small class="field-help">
+              Normalmente você vai começar com <strong>Pendente</strong>.
+            </small>
+          </div>
+
+          <label class="checkbox-row" for="domainPrimary">
+            <input type="checkbox" id="domainPrimary" name="domainPrimary" />
+            <span class="checkbox-box">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white"
+                stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </span>
+
+            <span class="checkbox-text-wrap">
+              <span class="checkbox-text">Definir como domínio principal</span>
+              <button
+                type="button"
+                class="help-trigger inline-help"
+                data-help-topic="primary"
+                aria-label="Explicar domínio principal"
+                title="O que é isso?"
+              >?</button>
+            </span>
+          </label>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancelDomainModalBtn">
+              Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary" id="createDomainBtn">
+              Salvar domínio
+            </button>
+          </div>
+
+          <div class="form-message" id="domainFormMessage"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal guia DNS -->
+  <div class="modal-overlay" id="guideModalOverlay"></div>
+
+  <div class="modal-shell modal-shell--wide" id="guideModal" aria-hidden="true">
+    <div class="modal-card modal-card--wide">
+      <div class="modal-head">
+        <div>
+          <span class="modal-eyebrow">Guia de DNS</span>
+          <h3 id="guideModalTitle">Guia de DNS e ativação</h3>
+          <p id="guideModalSubtitle">Passo a passo para configurar o domínio.</p>
+        </div>
+
+        <button type="button" class="modal-close" id="closeGuideModalBtn" aria-label="Fechar guia">
+          ×
+        </button>
+      </div>
+
+      <div class="modal-body modal-body--guide" id="guideModalContent">
+        <div class="empty-note">
+          Selecione um domínio para abrir o guia.
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="help-overlay" id="helpOverlay"></div>

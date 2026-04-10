@@ -1,266 +1,368 @@
+/* =========================================
+   VARIÁVEIS DE TEMA (CLARO / ESCURO)
+   ========================================= */
 :root {
-  --bg: #f5f7fb;
-  --card: #ffffff;
-  --line: #e5e7eb;
-  --text: #111827;
-  --muted: #6b7280;
-  --primary: #111827;
-  --primary-contrast: #ffffff;
-  --success: #047857;
+  --bg-main: #f5f7fb;
+  --bg-form: #ffffff;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --border-color: #e5e7eb;
+  --input-bg: #f9fafb;
+  
+  /* --- IDENTIDADE DOURADA (Light Mode) --- */
+  --primary: #D4AF37; /* Dourado Clássico AureMail */
+  --primary-hover: #B8962E; /* Dourado mais fechado no hover */
+  --primary-contrast: #111827; /* Texto escuro no botão para dar leitura e ar premium */
+  
+  --success: #059669;
   --danger: #dc2626;
   --warning: #b45309;
-  --shadow: 0 18px 60px rgba(17, 24, 39, 0.10);
-  --radius: 22px;
+  --warning-bg: rgba(180, 83, 9, 0.1);
+  
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  --radius: 14px;
 }
 
 html[data-theme="dark"] {
-  --bg: #0b1020;
-  --card: #121933;
-  --line: rgba(255,255,255,0.08);
-  --text: #f3f4f6;
-  --muted: #9ca3af;
-  --primary: #f9fafb;
-  --primary-contrast: #0b1020;
+  --bg-main: #0b1020;
+  --bg-form: #121933;
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --input-bg: rgba(0, 0, 0, 0.2);
+  
+  /* --- IDENTIDADE DOURADA (Dark Mode) --- */
+  --primary: #D4AF37;
+  --primary-hover: #E4C563; /* Dourado mais aceso no hover escuro */
+  --primary-contrast: #111827;
+  
   --success: #34d399;
   --danger: #f87171;
   --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.1);
+  
   --shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
 }
 
 * {
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
 }
 
 body {
-  margin: 0;
-  font-family: "Inter", sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(180, 83, 9, 0.10), transparent 25%),
-    radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.10), transparent 20%),
-    var(--bg);
-  color: var(--text);
-}
-
-a {
-  color: inherit;
-}
-
-.webmail-login-page {
+  background-color: var(--bg-main);
+  color: var(--text-main);
   min-height: 100vh;
   display: flex;
-  align-items: center;
+}
+
+/* =========================================
+   LAYOUT SPLIT-SCREEN
+   ========================================= */
+.login-container {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Lado Esquerdo (Branding) */
+.branding-section {
+  flex: 1.2;
+  background: url('https://images.unsplash.com/photo-1557683316-973673baf926?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') center/cover;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   justify-content: center;
-  padding: 28px;
+  padding: 4rem;
+  color: #ffffff;
 }
 
-.webmail-login-shell {
-  width: min(1100px, 100%);
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 24px;
-  align-items: stretch;
+.branding-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  /* Gradiente atualizado para combinar com o dourado, misturando azul escuro com tons de âmbar/ouro */
+  background: linear-gradient(135deg, rgba(11, 16, 32, 0.95) 0%, rgba(184, 150, 46, 0.7) 100%);
+  z-index: 1;
 }
 
-.webmail-login-brand,
-.webmail-login-card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+.branding-content {
+  position: relative;
+  z-index: 2;
+  max-width: 550px;
 }
 
-.webmail-login-brand {
-  padding: 34px;
-}
-
-.brand-badge,
-.mini-badge {
+.brand-badge {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--line);
+  gap: 8px;
+  background: rgba(212, 175, 55, 0.15); /* Fundo com leve toque dourado */
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  color: #E4C563; /* Ícone e texto em dourado claro */
+  padding: 8px 16px;
   border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  backdrop-filter: blur(10px);
+}
+
+.branding-content h1 {
+  font-size: 3rem;
   font-weight: 700;
-  color: var(--warning);
-  margin-bottom: 18px;
+  margin-bottom: 1rem;
+  line-height: 1.1;
 }
 
-.webmail-login-brand h1 {
-  margin: 0 0 12px;
-  font-size: clamp(30px, 4vw, 46px);
-  line-height: 1.02;
-  letter-spacing: -0.03em;
+.branding-content p {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: #e5e7eb;
+  margin-bottom: 2.5rem;
 }
 
-.webmail-login-brand p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1.65;
-}
-
+/* Cards Informativos da AureMail */
 .brand-card-list {
   display: grid;
-  gap: 14px;
-  margin-top: 28px;
+  gap: 16px;
 }
 
 .brand-card {
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 18px;
-  background: rgba(127, 127, 127, 0.04);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  border-radius: var(--radius);
+  backdrop-filter: blur(5px);
+  transition: border-color 0.3s;
+}
+
+.brand-card:hover {
+  border-color: rgba(212, 175, 55, 0.4);
 }
 
 .brand-card h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
+  font-size: 1.05rem;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--primary); /* Ícones agora ficam dourados */
 }
 
 .brand-card p {
-  font-size: 14px;
+  font-size: 0.9rem;
+  margin-bottom: 0;
+  color: #d1d5db;
 }
 
-.webmail-login-card {
-  padding: 30px;
+/* Lado Direito (Formulário) */
+.form-section {
+  flex: 1;
+  background-color: var(--bg-form);
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  padding: 2rem;
+  box-shadow: -10px 0 30px rgba(0,0,0,0.05);
+  z-index: 10;
+}
+
+.form-wrapper {
+  width: 100%;
+  max-width: 420px;
+}
+
+.logo-mobile {
+  display: none;
+  color: var(--primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+}
+
+.login-card-head {
+  margin-bottom: 2rem;
+}
+
+.mini-badge {
+  display: inline-block;
+  background: var(--warning-bg);
+  color: var(--warning);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
 }
 
 .login-card-head h2 {
-  margin: 0 0 8px;
-  font-size: 30px;
-  letter-spacing: -0.03em;
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-main);
 }
 
 .login-card-head p {
-  margin: 0 0 24px;
-  color: var(--muted);
-  line-height: 1.6;
+  color: var(--text-muted);
+  font-size: 0.95rem;
 }
 
+/* =========================================
+   ESTILOS DO FORMULÁRIO E INPUTS
+   ========================================= */
 .field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 1.2rem;
 }
 
 .field label {
-  font-size: 14px;
+  display: block;
+  font-size: 0.9rem;
   font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-main);
 }
 
-.field input {
-  width: 100%;
-  min-height: 52px;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--text);
-  padding: 0 14px;
-  outline: none;
-  font-size: 15px;
-}
-
-.field input:focus {
-  border-color: rgba(180, 83, 9, 0.6);
-  box-shadow: 0 0 0 4px rgba(180, 83, 9, 0.08);
-}
-
-.password-wrap {
+.input-wrapper {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.password-wrap input {
-  padding-right: 92px;
+.input-wrapper i.icon-left {
+  position: absolute;
+  left: 16px;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  transition: color 0.3s;
 }
 
+.input-wrapper input {
+  width: 100%;
+  padding: 14px 16px 14px 45px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background-color: var(--input-bg);
+  color: var(--text-main);
+  font-size: 1rem;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.input-wrapper input:focus {
+  border-color: var(--primary);
+  /* Sombra (Glow) atualizada para um tom dourado transparente */
+  box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.15);
+  background-color: var(--bg-form);
+}
+
+.input-wrapper input:focus + i.icon-left {
+  color: var(--primary);
+}
+
+/* Botão de mostrar senha no novo padrão */
 .toggle-password {
   position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  min-height: 36px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
+  right: 12px;
   background: transparent;
-  color: var(--text);
-  padding: 0 12px;
+  border: none;
+  color: var(--text-muted);
   cursor: pointer;
-  font-weight: 600;
+  padding: 5px;
+  font-size: 1.1rem;
+  transition: color 0.2s;
+}
+
+.toggle-password:hover {
+  color: var(--text-main);
 }
 
 .field-error {
-  min-height: 16px;
+  display: block;
+  min-height: 20px;
   color: var(--danger);
-  font-size: 12px;
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.form-options {
+  margin: 0.5rem 0 1.5rem;
 }
 
 .remember-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 8px 0 18px;
-  color: var(--muted);
-  font-size: 14px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.95rem;
 }
 
+.remember-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary); /* Checkbox também fica dourado */
+}
+
+/* Botões e Mensagens */
 .submit-btn {
   width: 100%;
   min-height: 52px;
-  border: 0;
-  border-radius: 14px;
+  border: none;
+  border-radius: var(--radius);
   background: var(--primary);
   color: var(--primary-contrast);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 1rem;
   cursor: pointer;
+  transition: background 0.3s, transform 0.1s;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.submit-btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .submit-btn:disabled {
   opacity: 0.7;
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .form-message {
   min-height: 22px;
   margin-top: 14px;
-  font-size: 14px;
-  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
 }
 
-.form-message.success {
-  color: var(--success);
-}
-
-.form-message.error {
-  color: var(--danger);
-}
-
-.form-message.info {
-  color: var(--muted);
-}
+.form-message.success { color: var(--success); }
+.form-message.error { color: var(--danger); }
+.form-message.info { color: var(--text-muted); }
 
 .login-footer-links {
-  margin-top: 18px;
+  margin-top: 2rem;
   text-align: center;
 }
 
 .login-footer-links a {
-  color: var(--muted);
+  color: var(--text-muted);
   text-decoration: none;
-  font-size: 14px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 0.2s;
 }
 
 .login-footer-links a:hover {
-  color: var(--text);
+  color: var(--primary);
 }
 
-@media (max-width: 920px) {
-  .webmail-login-shell {
-    grid-template-columns: 1fr;
-  }
+/* Responsividade Mobile */
+@media (max-width: 900px) {
+  .branding-section { display: none; }
+  .form-section { padding: 1.5rem; background-color: var(--bg-main); }
+  .form-wrapper { background: var(--bg-form); padding: 2rem; border-radius: var(--radius); box-shadow: var(--shadow); }
+  .logo-mobile { display: flex; align-items: center; gap: 8px; }
 }

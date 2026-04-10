@@ -1,24 +1,61 @@
-import os
-import json
-import time
-import hmac
 import base64
 import hashlib
+import hmac
+import json
+import os
 import secrets
-from typing import Optional
+import time
+from typing import Any, Optional
 
-from fastapi import HTTPException, Request, Response, Depends
+from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import UsuarioPlataforma
 
 
-SECRET_KEY = os.getenv("AUREMAIL_SECRET_KEY", "troque-essa-chave-em-producao")
-COOKIE_NAME = os.getenv("AUREMAIL_COOKIE_NAME", "auremail_session")
-COOKIE_MAX_AGE = int(os.getenv("AUREMAIL_COOKIE_MAX_AGE", str(60 * 60 * 24 * 7)))
-COOKIE_SECURE = os.getenv("AUREMAIL_COOKIE_SECURE", "false").lower() == "true"
-COOKIE_SAMESITE = os.getenv("AUREMAIL_COOKIE_SAMESITE", "lax")
+def _get_required_env(name: str) -> str:
+    value = (os.getenv(name, "") or "").strip()
+    if not value:
+        raise RuntimeError(f"{name} não configurada no .env.")
+    return value
+
+
+def _get_cookie_max_age() -> int:
+    raw = (os.getenv("AUREMAIL_COOKIE_MAX_AGE", "") or "").strip()
+    if not raw:
+        return 60 * 60 * 24 * 7
+
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise RuntimeError("AUREMAIL_COOKIE_MAX_AGE inválido no .env.") from exc
+
+    if value <= 0:
+        raise RuntimeError("AUREMAIL_COOKIE_MAX_AGE deve ser maior que zero.")
+
+    return value
+
+
+def _get_cookie_samesite() -> str:
+    value = (os.getenv("AUREMAIL_COOKIE_SAMESITE", "lax") or "lax").strip().lower()
+    allowed = {"lax", "strict", "none"}
+
+    if value not in allowed:
+        raise RuntimeError(
+            "AUREMAIL_COOKIE_SAMESITE inválido no .env. Use: lax, strict ou none."
+        )
+
+    return value
+
+
+SECRET_KEY = _get_required_env("AUREMAIL_SECRET_KEY")
+COOKIE_NAME = (os.getenv("AUREMAIL_COOKIE_NAME", "auremail_session") or "auremail_session").strip()
+COOKIE_MAX_AGE = _get_cookie_max_age()
+COOKIE_SECURE = (os.getenv("AUREMAIL_COOKIE_SECURE", "false") or "false").strip().lower() == "true"
+COOKIE_SAMESITE = _get_cookie_samesite()
+
+SHORT_SESSION_MAX_AGE = 60 * 60 * 12
 
 
 def normalize_email(email: str) -> str:
@@ -35,8 +72,12 @@ def _b64url_decode(data: str) -> bytes:
 
 
 def hash_password(password: str, iterations: int = 120_000) -> str:
-    if not password:
+    password = password or ""
+    if not password.strip():
         raise ValueError("Senha inválida.")
+
+    if iterations <= 0:
+        raise ValueError("Número de iterações inválido.")
 
     salt = secrets.token_hex(16)
     digest = hashlib.pbkdf2_hmac(
@@ -51,12 +92,17 @@ def hash_password(password: str, iterations: int = 120_000) -> str:
 
 def verify_password(password: str, stored_hash: str) -> bool:
     try:
+        if not password or not stored_hash:
+            return False
+
         algorithm, iterations_str, salt, digest = stored_hash.split("$", 3)
 
         if algorithm != "pbkdf2_sha256":
             return False
 
         iterations = int(iterations_str)
+        if iterations <= 0:
+            return False
 
         computed = hashlib.pbkdf2_hmac(
             "sha256",
@@ -74,12 +120,13 @@ def build_session_token(user: UsuarioPlataforma, max_age: int) -> str:
     now = int(time.time())
 
     payload = {
-        "user_id": user.id,
-        "empresa_id": user.empresa_id,
-        "email": user.email,
-        "name": user.name,
+        "user_id": int(user.id),
+        "empresa_id": int(user.empresa_id),
+        "email": normalize_email(user.email),
+        "name": (user.name or "").strip(),
         "iat": now,
         "exp": now + int(max_age),
+        "type": "panel_session",
     }
 
     payload_bytes = json.dumps(
@@ -100,8 +147,11 @@ def build_session_token(user: UsuarioPlataforma, max_age: int) -> str:
     return f"{payload_b64}.{signature_b64}"
 
 
-def decode_session_token(token: str) -> Optional[dict]:
+def decode_session_token(token: str) -> Optional[dict[str, Any]]:
     try:
+        if not token or "." not in token:
+            return None
+
         payload_b64, signature_b64 = token.split(".", 1)
 
         expected_signature = hmac.new(
@@ -115,10 +165,14 @@ def decode_session_token(token: str) -> Optional[dict]:
         if not hmac.compare_digest(expected_signature, provided_signature):
             return None
 
-        payload = json.loads(_b64url_decode(payload_b64).decode("utf-8"))
+        payload_raw = _b64url_decode(payload_b64).decode("utf-8")
+        payload = json.loads(payload_raw)
 
         exp = payload.get("exp")
-        if exp is not None and int(exp) < int(time.time()):
+        if exp is None or int(exp) < int(time.time()):
+            return None
+
+        if payload.get("type") != "panel_session":
             return None
 
         return payload
@@ -126,8 +180,12 @@ def decode_session_token(token: str) -> Optional[dict]:
         return None
 
 
-def set_login_cookie(response: Response, user: UsuarioPlataforma, remember: bool = False) -> None:
-    max_age = COOKIE_MAX_AGE if remember else 60 * 60 * 12
+def set_login_cookie(
+    response: Response,
+    user: UsuarioPlataforma,
+    remember: bool = False,
+) -> None:
+    max_age = COOKIE_MAX_AGE if remember else SHORT_SESSION_MAX_AGE
     token = build_session_token(user, max_age=max_age)
 
     response.set_cookie(
@@ -148,7 +206,7 @@ def clear_login_cookie(response: Response) -> None:
     )
 
 
-def get_session_payload(request: Request) -> Optional[dict]:
+def get_session_payload(request: Request) -> Optional[dict[str, Any]]:
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         return None
@@ -160,7 +218,10 @@ def is_authenticated(request: Request) -> bool:
     return bool(payload and payload.get("user_id") and payload.get("email"))
 
 
-def get_current_user(request: Request, db: Session = Depends(get_db)) -> UsuarioPlataforma:
+def get_current_user(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> UsuarioPlataforma:
     payload = get_session_payload(request)
 
     if not payload:
@@ -188,7 +249,10 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Usuario
     return user
 
 
-def get_current_user_optional(request: Request, db: Session) -> Optional[UsuarioPlataforma]:
+def get_current_user_optional(
+    request: Request,
+    db: Session,
+) -> Optional[UsuarioPlataforma]:
     try:
         return get_current_user(request, db)
     except HTTPException:

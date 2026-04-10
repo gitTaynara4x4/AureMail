@@ -8,7 +8,6 @@
   const emailError = document.getElementById("emailError");
   const passwordError = document.getElementById("passwordError");
   const togglePasswordBtn = document.getElementById("togglePassword");
-  const togglePasswordText = document.getElementById("togglePasswordText");
 
   function normalizeEmail(value) {
     return String(value || "").trim().toLowerCase();
@@ -29,7 +28,7 @@
 
   function showFieldError(input, element, message) {
     element.textContent = message;
-    input.style.borderColor = "var(--danger, #dc2626)";
+    input.style.borderColor = "var(--danger)";
   }
 
   function setMessage(message, tone = "") {
@@ -39,7 +38,12 @@
 
   function setLoading(isLoading) {
     loginBtn.disabled = isLoading;
-    loginBtn.textContent = isLoading ? "Entrando..." : "Entrar no webmail";
+    // Adiciona o spinner de carregamento quando está validando
+    if(isLoading) {
+      loginBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Entrando...';
+    } else {
+      loginBtn.innerHTML = 'Entrar no webmail';
+    }
   }
 
   async function parseJson(response) {
@@ -132,8 +136,8 @@
     }
   }
 
+  // Eventos de Input para limpar os erros em tempo real
   emailInput?.addEventListener("input", () => {
-    emailInput.value = normalizeEmail(emailInput.value);
     emailError.textContent = "";
     emailInput.style.borderColor = "";
     formMessage.textContent = "";
@@ -145,13 +149,23 @@
     formMessage.textContent = "";
   });
 
+  // Toggle visual da senha atualizado para usar ícones FontAwesome
   togglePasswordBtn?.addEventListener("click", () => {
     const isPassword = passwordInput.type === "password";
     passwordInput.type = isPassword ? "text" : "password";
-    togglePasswordText.textContent = isPassword ? "Ocultar" : "Mostrar";
+    
+    const icon = togglePasswordBtn.querySelector('i');
+    if (isPassword) {
+      icon.classList.remove('fa-eye');
+      icon.classList.add('fa-eye-slash');
+    } else {
+      icon.classList.remove('fa-eye-slash');
+      icon.classList.add('fa-eye');
+    }
   });
 
   form?.addEventListener("submit", submitLogin);
 
+  // Executa a verificação de sessão ao carregar
   checkWebmailSession();
 })();

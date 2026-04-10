@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <script>
+  <script>
     (() => {
       const savedTheme = localStorage.getItem("auremail-theme");
       if (savedTheme === "dark") {
@@ -19,77 +19,86 @@
     })();
   </script>
 
-  <link rel="stylesheet" href="./assets/css/global.css" />
-  <link rel="stylesheet" href="./assets/css/configuracoes.css" />
+  <link rel="stylesheet" href="/assets/css/global.css" />
+  <link rel="stylesheet" href="/assets/css/configuracoes.css" />
 </head>
 <body>
   <div class="app-layout">
     <aside id="sidebarMount" class="am-sidebar-mount"></aside>
 
     <main class="app-main">
-      <header class="page-head">
-        <div class="page-head__copy">
-          <h1>Configurações</h1>
-          <p>Gerencie suas preferências de conta e personalize a interface.</p>
-        </div>
-      </header>
+      <div class="page-shell">
+        <header class="page-head">
+          <div class="page-head__copy">
+            <div class="status-inline">
+              <span class="status-inline-dot"></span>
+              Preferências da conta
+            </div>
 
-      <div class="divider"></div>
-
-      <div class="settings-container">
-        <section class="settings-section">
-          <div class="settings-sidebar">
-            <h3>Aparência</h3>
-            <p>Personalize o visual do AureMail no seu dispositivo.</p>
+            <h1>Configurações</h1>
+            <p>Gerencie suas preferências de interface e visualize os dados da sua conta.</p>
           </div>
-          
-          <div class="settings-content">
-            <article class="data-card">
-              <div class="setting-row">
-                <div class="setting-info">
-                  <strong>Modo Escuro (Dark Mode)</strong>
-                  <span>Altera o esquema de cores para um fundo escuro, ideal para ambientes com pouca luz.</span>
-                </div>
-                
-                <div class="setting-action">
-                  <label class="theme-switch" for="darkModeToggle">
-                    <input type="checkbox" id="darkModeToggle" />
-                    <span class="slider"></span>
-                  </label>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
+        </header>
 
         <div class="divider"></div>
 
-        <section class="settings-section">
-          <div class="settings-sidebar">
-            <h3>Perfil do Usuário</h3>
-            <p>Informações básicas da sua conta de acesso.</p>
-          </div>
-          
-          <div class="settings-content">
-            <article class="data-card p-6">
-              <div class="field">
-                <label>Nome Completo</label>
-                <input type="text" id="profileName" value="Carregando..." readonly disabled />
-              </div>
-              
-              <div class="field mt-4">
-                <label>Endereço de E-mail</label>
-                <input type="email" id="profileEmail" value="Carregando..." readonly disabled />
-              </div>
-              
-              <p class="field-note mt-4">Para alterar seus dados cadastrais, entre em contato com o administrador da sua empresa.</p>
-            </article>
-          </div>
-        </section>
+        <div class="settings-container">
+          <section class="settings-section">
+            <div class="settings-sidebar">
+              <h3>Aparência</h3>
+              <p>Personalize o visual do AureMail no seu dispositivo.</p>
+            </div>
+
+            <div class="settings-content">
+              <article class="data-card">
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <strong>Modo escuro</strong>
+                    <span>Ativa um visual mais escuro e confortável para ambientes com pouca luz.</span>
+                  </div>
+
+                  <div class="setting-action">
+                    <label class="theme-switch" for="darkModeToggle">
+                      <input type="checkbox" id="darkModeToggle" />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <div class="divider"></div>
+
+          <section class="settings-section">
+            <div class="settings-sidebar">
+              <h3>Perfil do usuário</h3>
+              <p>Informações básicas da sua conta de acesso dentro da plataforma.</p>
+            </div>
+
+            <div class="settings-content">
+              <article class="data-card p-6">
+                <div class="field">
+                  <label for="profileName">Nome completo</label>
+                  <input type="text" id="profileName" value="Carregando..." readonly disabled />
+                </div>
+
+                <div class="field mt-4">
+                  <label for="profileEmail">Endereço de e-mail</label>
+                  <input type="email" id="profileEmail" value="Carregando..." readonly disabled />
+                </div>
+
+                <p class="field-note mt-4">
+                  Para alterar seus dados cadastrais, entre em contato com o administrador da sua empresa.
+                </p>
+              </article>
+            </div>
+          </section>
+        </div>
       </div>
     </main>
   </div>
 
-  <script src="./assets/js/configuracoes.js"></script>
+  <script src="/assets/js/configuracoes.js"></script>
 </body>
 </html>

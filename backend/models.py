@@ -126,6 +126,9 @@ class CaixaEmail(Base):
 
     display_name = Column(String(150), nullable=True)
     password_hash = Column(String(255), nullable=False)
+
+    # Mantido assim por compatibilidade com o restante do projeto.
+    # Depois a gente pode migrar isso para mail_password_enc.
     smtp_password_enc = Column(Text, nullable=True)
 
     quota_mb = Column(Integer, nullable=False, server_default=text("2048"))
@@ -154,7 +157,6 @@ class CaixaEmail(Base):
     )
 
 
-    
 class Pasta(Base):
     __tablename__ = "pastas"
     __table_args__ = (

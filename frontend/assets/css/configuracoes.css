@@ -1,73 +1,166 @@
-/* =========================================================
-   1. VARIÁVEIS (Luz e Sombra)
-========================================================= */
 :root {
-  /* Tema Claro (Padrão) */
-  --bg-app: #FAFAFA;
-  --bg-surface: #FFFFFF;
-  --bg-subtle: #F4F4F5;
-  --border-light: #E4E4E7;
-  --text-main: #18181B;
-  --text-muted: #71717A;
-  --accent-primary: #090A0B;
-  --accent-hover: #27272A;
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --bg-app: #f6f7f9;
+  --bg-surface: #ffffff;
+  --bg-subtle: #fafafa;
+  --bg-soft: #f8f8f8;
+
+  --border-light: #e7eaee;
+  --border-hover: #d8dde5;
+
+  --text-main: #101828;
+  --text-soft: #475467;
+  --text-muted: #667085;
+
+  --accent-primary: #101828;
+  --accent-hover: #1d2939;
+
+  --success-bg: #edf9f1;
+  --success-text: #15803d;
+  --success-border: #ccefd8;
+
+  --info-bg: #eff6ff;
+  --info-text: #2563eb;
+  --info-border: #bfdbfe;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-card: 0 8px 24px rgba(16, 24, 40, 0.05);
 }
 
-/* O MODO ESCURO! */
-[data-theme="dark"] {
-  --bg-app: #090A0B;          /* Fundo preto puro */
-  --bg-surface: #18181B;      /* Cartões em chumbo muito escuro */
-  --bg-subtle: #27272A;       /* Elementos de destaque em grafite */
-  --border-light: #3F3F46;    /* Bordas mais visíveis no escuro */
-  --text-main: #F4F4F5;       /* Texto branco/gelo */
-  --text-muted: #A1A1AA;      /* Texto secundário cinza */
-  --accent-primary: #FFFFFF;  /* Botões principais ficam brancos no modo escuro */
-  --accent-hover: #E4E4E7;
-  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+html[data-theme="dark"] {
+  --bg-app: #0f1115;
+  --bg-surface: #151922;
+  --bg-subtle: #181d27;
+  --bg-soft: #12161d;
+
+  --border-light: #262c38;
+  --border-hover: #333a49;
+
+  --text-main: #eef2f7;
+  --text-soft: #c8d0db;
+  --text-muted: #98a2b3;
+
+  --accent-primary: #eef2f7;
+  --accent-hover: #dbe3ee;
+
+  --success-bg: rgba(74, 222, 128, 0.12);
+  --success-text: #4ade80;
+  --success-border: rgba(74, 222, 128, 0.18);
+
+  --info-bg: rgba(96, 165, 250, 0.12);
+  --info-text: #60a5fa;
+  --info-border: rgba(96, 165, 250, 0.18);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-card: 0 12px 30px rgba(0, 0, 0, 0.22);
 }
 
-/* Faz a transição de cores ser suave */
-body, .data-card, .app-main, .am-sidebar {
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-/* =========================================================
-   2. RESETS E LAYOUT BASE
-========================================================= */
-* { margin: 0; padding: 0; box-sizing: border-box; }
+html,
 body {
-  background-color: var(--bg-app);
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg-app);
   color: var(--text-main);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input {
+  font: inherit;
+  outline: none;
 }
 
 .app-layout {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  display: flex;
 }
 
 .app-main {
-  padding: 40px;
-  max-width: 1000px; /* Mais estreito para focar nas configurações */
-  margin: 0 auto;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+  padding: 28px;
 }
 
-.divider { height: 1px; background-color: var(--border-light); margin: 32px 0; }
+.page-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+}
 
-.page-head__copy h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 6px;}
-.page-head__copy p { color: var(--text-muted); font-size: 15px; }
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
 
-/* =========================================================
-   3. ESTRUTURA DE CONFIGURAÇÕES
-========================================================= */
+.page-head__copy {
+  min-width: 0;
+}
+
+.status-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-surface);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.status-inline-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--success-text);
+  box-shadow: 0 0 0 4px var(--success-bg);
+  flex-shrink: 0;
+}
+
+.page-head__copy h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  line-height: 1.08;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--text-main);
+}
+
+.page-head__copy p {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.65;
+  max-width: 720px;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 24px 0;
+}
+
 .settings-container {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 8px;
 }
 
 .settings-section {
@@ -82,34 +175,45 @@ body {
   font-weight: 600;
   color: var(--text-main);
   margin-bottom: 8px;
+  letter-spacing: -0.02em;
 }
 
 .settings-sidebar p {
   font-size: 14px;
   color: var(--text-muted);
-  line-height: 1.6;
+  line-height: 1.65;
+}
+
+.settings-content {
+  min-width: 0;
 }
 
 .data-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-light);
-  border-radius: 8px;
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
-.p-6 { padding: 24px; }
-.mt-4 { margin-top: 16px; }
+.p-6 {
+  padding: 24px;
+}
 
-/* =========================================================
-   4. LINHA DE CONFIGURAÇÃO (O TOGGLE)
-========================================================= */
+.mt-4 {
+  margin-top: 16px;
+}
+
 .setting-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px;
   gap: 20px;
+  padding: 24px;
+}
+
+.setting-info {
+  min-width: 0;
 }
 
 .setting-info strong {
@@ -124,19 +228,21 @@ body {
   display: block;
   font-size: 14px;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
-/* O Switcher estilo iOS/Vercel */
-.theme-switch {
-  position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 24px;
+.setting-action {
   flex-shrink: 0;
 }
 
-.theme-switch input { 
+.theme-switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 26px;
+}
+
+.theme-switch input {
   opacity: 0;
   width: 0;
   height: 0;
@@ -144,41 +250,38 @@ body {
 
 .slider {
   position: absolute;
+  inset: 0;
   cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #D4D4D8;
-  transition: .3s;
-  border-radius: 34px;
+  background-color: #d4d4d8;
+  transition: 0.25s ease;
+  border-radius: 999px;
 }
 
-.slider:before {
-  position: absolute;
+.slider::before {
   content: "";
-  height: 18px;
-  width: 18px;
+  position: absolute;
+  width: 20px;
+  height: 20px;
   left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .3s;
+  top: 3px;
+  background-color: #ffffff;
+  transition: 0.25s ease;
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-input:checked + .slider {
-  background-color: #10B981; /* Verde ativado */
+.theme-switch input:checked + .slider {
+  background-color: #10b981;
 }
 
-input:focus + .slider {
-  box-shadow: 0 0 1px #10B981;
+.theme-switch input:focus + .slider {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
-input:checked + .slider:before {
+.theme-switch input:checked + .slider::before {
   transform: translateX(20px);
 }
 
-/* =========================================================
-   5. CAMPOS DE TEXTO
-========================================================= */
 .field {
   display: flex;
   flex-direction: column;
@@ -193,32 +296,51 @@ input:checked + .slider:before {
 
 .field input {
   width: 100%;
-  height: 40px;
+  height: 42px;
   border: 1px solid var(--border-light);
-  border-radius: 6px;
+  border-radius: 10px;
   background: var(--bg-app);
   color: var(--text-muted);
   padding: 0 12px;
   font-size: 14px;
+  box-shadow: var(--shadow-sm);
 }
 
 .field input:disabled {
   background: var(--bg-subtle);
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.9;
 }
 
 .field-note {
   font-size: 13px;
   color: var(--text-muted);
+  line-height: 1.6;
 }
 
-/* =========================================================
-   6. RESPONSIVIDADE
-========================================================= */
-@media (max-width: 900px) {
-  .app-layout { grid-template-columns: 1fr; }
-  .settings-section { grid-template-columns: 1fr; gap: 16px; }
-  .settings-sidebar { padding-bottom: 16px; border-bottom: 1px solid var(--border-light); }
-  .app-main { padding: 24px 16px; }
+@media (max-width: 980px) {
+  .settings-section {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .settings-sidebar {
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-light);
+  }
+}
+
+@media (max-width: 680px) {
+  .app-main {
+    padding: 18px;
+  }
+
+  .page-head__copy h1 {
+    font-size: 24px;
+  }
+
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

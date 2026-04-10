@@ -4,8 +4,6 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.database import engine
-from backend.models import Base
 from backend.routers.auth import is_authenticated
 from backend.routers.caixas_email import router as caixas_email_router
 from backend.routers.criar_empresa import router as criar_empresa_router
@@ -26,7 +24,8 @@ app = FastAPI(
     version="0.1.0",
 )
 
-Base.metadata.create_all(bind=engine)
+# Não criar/alterar tabela no boot do app.
+# Banco deve ser tratado por migration/script separado.
 
 if ASSETS_DIR.exists():
     app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
@@ -55,6 +54,10 @@ def has_mail_access(request: Request) -> bool:
     return has_panel_access(request) or has_webmail_access(request)
 
 
+def redirect(url: str) -> RedirectResponse:
+    return RedirectResponse(url=url, status_code=302)
+
+
 def serve_page(
     request: Request,
     filename: str,
@@ -64,20 +67,20 @@ def serve_page(
     redirect_if_mail_logged: str | None = None,
 ):
     if require_panel_auth and not has_panel_access(request):
-        return RedirectResponse(url="/login")
+        return redirect("/login")
 
     if require_mail_auth and not has_mail_access(request):
-        return RedirectResponse(url="/webmail-login")
+        return redirect("/webmail-login")
 
     if redirect_if_panel_logged and has_panel_access(request):
-        return RedirectResponse(url=redirect_if_panel_logged)
+        return redirect(redirect_if_panel_logged)
 
     if redirect_if_mail_logged and has_mail_access(request):
-        return RedirectResponse(url=redirect_if_mail_logged)
+        return redirect(redirect_if_mail_logged)
 
     file_path = frontend_file(filename)
-    if not file_path.exists():
-        return RedirectResponse(url="/login")
+    if not file_path.exists() or not file_path.is_file():
+        return redirect("/login")
 
     return FileResponse(file_path)
 
@@ -85,12 +88,12 @@ def serve_page(
 @app.get("/", include_in_schema=False)
 def root(request: Request):
     if has_panel_access(request):
-        return RedirectResponse(url="/app")
+        return redirect("/app")
 
     if has_webmail_access(request):
-        return RedirectResponse(url="/mail")
+        return redirect("/mail")
 
-    return RedirectResponse(url="/login")
+    return redirect("/login")
 
 
 @app.get("/login", include_in_schema=False)
@@ -100,6 +103,7 @@ def login_page(request: Request):
         request=request,
         filename="login.html",
         redirect_if_panel_logged="/app",
+        redirect_if_mail_logged="/mail",
     )
 
 
@@ -110,6 +114,7 @@ def webmail_login_page(request: Request):
         request=request,
         filename="webmail-login.html",
         redirect_if_mail_logged="/mail",
+        redirect_if_panel_logged="/app",
     )
 
 
@@ -120,6 +125,7 @@ def criar_empresa_page(request: Request):
         request=request,
         filename="criar-empresa.html",
         redirect_if_panel_logged="/app",
+        redirect_if_mail_logged="/mail",
     )
 
 
@@ -176,6 +182,6 @@ def mail_page(request: Request):
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
     favicon_path = ASSETS_DIR / "img" / "fav-icon.png"
-    if favicon_path.exists():
+    if favicon_path.exists() and favicon_path.is_file():
         return FileResponse(favicon_path)
-    return RedirectResponse(url="/login")
+    return redirect("/login")

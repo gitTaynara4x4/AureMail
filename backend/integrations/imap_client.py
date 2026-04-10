@@ -34,6 +34,24 @@ class RemoteMessage:
     is_read: bool
 
 
+def _env_str(name: str, default: str = "") -> str:
+    return (os.getenv(name, default) or default).strip()
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = _env_str(name, "true" if default else "false").lower()
+    return raw == "true"
+
+
+def _env_int(name: str, default: int, minimum: int = 1) -> int:
+    raw = _env_str(name, str(default))
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value >= minimum else default
+
+
 def _decode_header_value(value: str | None) -> str | None:
     if not value:
         return None
@@ -59,10 +77,14 @@ def _extract_email_list(value: str | None) -> list[tuple[str | None, str]]:
 def _strip_html(value: str | None) -> str | None:
     if not value:
         return None
+
     text = re.sub(r"(?is)<(script|style).*?>.*?</\1>", " ", value)
-    text = re.sub(r"(?s)<br\s*/?>", "\n", text)
-    text = re.sub(r"(?s)</p\s*>", "\n\n", text)
-    text = re.sub(r"(?s)<.*?>", " ", text)
+    text = re.sub(r"(?is)<br\s*/?>", "\n", text)
+    text = re.sub(r"(?is)</p\s*>", "\n\n", text)
+    text = re.sub(r"(?is)</div\s*>", "\n", text)
+    text = re.sub(r"(?is)<li\s*>", "• ", text)
+    text = re.sub(r"(?is)</li\s*>", "\n", text)
+    text = re.sub(r"(?is)<.*?>", " ", text)
     text = unescape(text)
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n\s+\n", "\n\n", text)
@@ -78,6 +100,7 @@ def _extract_text_bodies(message) -> tuple[str | None, str | None]:
         for part in message.walk():
             content_type = part.get_content_type()
             disposition = str(part.get_content_disposition() or "").lower()
+
             if disposition == "attachment":
                 continue
 
@@ -91,13 +114,17 @@ def _extract_text_bodies(message) -> tuple[str | None, str | None]:
                 except Exception:
                     payload = None
 
-            if not payload:
+            if payload is None:
+                continue
+
+            payload_text = str(payload).strip()
+            if not payload_text:
                 continue
 
             if content_type == "text/plain":
-                plain_parts.append(str(payload))
+                plain_parts.append(payload_text)
             elif content_type == "text/html":
-                html_parts.append(str(payload))
+                html_parts.append(payload_text)
     else:
         try:
             payload = message.get_content()
@@ -106,14 +133,17 @@ def _extract_text_bodies(message) -> tuple[str | None, str | None]:
             charset = message.get_content_charset() or "utf-8"
             payload = raw.decode(charset, errors="replace")
 
+        payload_text = str(payload or "").strip()
         content_type = message.get_content_type()
-        if content_type == "text/plain":
-            plain_parts.append(str(payload))
-        elif content_type == "text/html":
-            html_parts.append(str(payload))
 
-    body_text = "\n\n".join([part.strip() for part in plain_parts if str(part).strip()]) or None
-    body_html = "\n".join([part.strip() for part in html_parts if str(part).strip()]) or None
+        if payload_text:
+            if content_type == "text/plain":
+                plain_parts.append(payload_text)
+            elif content_type == "text/html":
+                html_parts.append(payload_text)
+
+    body_text = "\n\n".join(part for part in plain_parts if part) or None
+    body_html = "\n".join(part for part in html_parts if part) or None
 
     if not body_text and body_html:
         body_text = _strip_html(body_html)
@@ -131,12 +161,15 @@ def _preview_from_body(body: str | None, max_len: int = 180) -> str | None:
 def _parse_sent_at(value: str | None) -> datetime | None:
     if not value:
         return None
+
     try:
         dt = parsedate_to_datetime(value)
         if dt is None:
             return None
+
         if dt.tzinfo is None:
             return dt.replace(tzinfo=timezone.utc)
+
         return dt.astimezone(timezone.utc)
     except Exception:
         return None
@@ -150,22 +183,44 @@ def _build_fallback_message_id(uid: str, mailbox_email: str) -> str:
 def _flags_to_is_read(flags_blob: bytes | str | None) -> bool:
     if not flags_blob:
         return False
-    text = flags_blob.decode("utf-8", errors="replace") if isinstance(flags_blob, bytes) else str(flags_blob)
+
+    text = (
+        flags_blob.decode("utf-8", errors="replace")
+        if isinstance(flags_blob, bytes)
+        else str(flags_blob)
+    )
     return "\\Seen" in text
+
+
+def _extract_fetch_parts(fetch_data) -> tuple[bytes | None, bytes]:
+    message_bytes = None
+    flags_blob = b""
+
+    for part in fetch_data:
+        if not isinstance(part, tuple) or len(part) < 2:
+            continue
+
+        meta, payload = part
+
+        if isinstance(meta, bytes):
+            flags_blob = meta
+
+        if isinstance(payload, (bytes, bytearray)):
+            message_bytes = bytes(payload)
+
+    return message_bytes, flags_blob
 
 
 class AureMailImapClient:
     def __init__(self) -> None:
-        self.host = (os.getenv("AUREMAIL_IMAP_HOST", "") or "").strip() or (
-            os.getenv("AUREMAIL_MAIL_SERVER_HOST", "") or ""
-        ).strip()
-        self.port = int((os.getenv("AUREMAIL_IMAP_PORT", "993") or "993").strip())
-        self.timeout = int((os.getenv("AUREMAIL_IMAP_TIMEOUT", "20") or "20").strip())
-        self.mailbox_name = (os.getenv("AUREMAIL_IMAP_INBOX_NAME", "INBOX") or "INBOX").strip()
-        self.sync_limit = int((os.getenv("AUREMAIL_IMAP_SYNC_LIMIT", "30") or "30").strip())
-        self.use_ssl = (os.getenv("AUREMAIL_IMAP_SSL", "true") or "true").strip().lower() == "true"
-        self.use_starttls = (os.getenv("AUREMAIL_IMAP_STARTTLS", "true") or "true").strip().lower() == "true"
-        self.verify_ssl = (os.getenv("AUREMAIL_IMAP_VERIFY_SSL", "true") or "true").strip().lower() == "true"
+        self.host = _env_str("AUREMAIL_IMAP_HOST") or _env_str("AUREMAIL_MAIL_SERVER_HOST")
+        self.port = _env_int("AUREMAIL_IMAP_PORT", 993, minimum=1)
+        self.timeout = _env_int("AUREMAIL_IMAP_TIMEOUT", 20, minimum=1)
+        self.mailbox_name = _env_str("AUREMAIL_IMAP_INBOX_NAME", "INBOX") or "INBOX"
+        self.sync_limit = _env_int("AUREMAIL_IMAP_SYNC_LIMIT", 30, minimum=1)
+        self.use_ssl = _env_bool("AUREMAIL_IMAP_SSL", True)
+        self.use_starttls = _env_bool("AUREMAIL_IMAP_STARTTLS", True)
+        self.verify_ssl = _env_bool("AUREMAIL_IMAP_VERIFY_SSL", True)
 
     def ensure_enabled(self) -> None:
         if not self.host:
@@ -269,6 +324,9 @@ class AureMailImapClient:
         limit: int | None = None,
     ) -> list[RemoteMessage]:
         sync_limit = int(limit or self.sync_limit or 30)
+        if sync_limit <= 0:
+            sync_limit = 30
+
         client = None
 
         try:
@@ -296,18 +354,7 @@ class AureMailImapClient:
                 if fetch_status != "OK" or not fetch_data:
                     continue
 
-                message_bytes = None
-                flags_blob = b""
-
-                for part in fetch_data:
-                    if not isinstance(part, tuple) or len(part) < 2:
-                        continue
-                    meta, payload = part
-                    if isinstance(meta, bytes):
-                        flags_blob = meta
-                    if isinstance(payload, (bytes, bytearray)):
-                        message_bytes = bytes(payload)
-
+                message_bytes, flags_blob = _extract_fetch_parts(fetch_data)
                 if not message_bytes:
                     continue
 
@@ -315,17 +362,20 @@ class AureMailImapClient:
 
                 from_name, from_email = parseaddr(message.get("From") or "")
                 from_name = _decode_header_value(from_name)
-                from_email = _normalize_email(from_email)
+                from_email = _normalize_email(from_email) or "unknown@unknown.local"
 
                 to_pairs = _extract_email_list(message.get("To"))
                 cc_pairs = _extract_email_list(message.get("Cc"))
 
-                to_email = ", ".join([email for _, email in to_pairs]) or email_address
-                cc_email = ", ".join([email for _, email in cc_pairs]) or None
+                to_email = ", ".join(email for _, email in to_pairs) or email_address
+                cc_email = ", ".join(email for _, email in cc_pairs) or None
 
                 subject = _decode_header_value(message.get("Subject"))
                 body_text, body_html = _extract_text_bodies(message)
-                message_id_header = _decode_header_value(message.get("Message-Id")) or _build_fallback_message_id(uid, email_address)
+                message_id_header = (
+                    _decode_header_value(message.get("Message-Id"))
+                    or _build_fallback_message_id(uid, email_address)
+                )
                 sent_at = _parse_sent_at(message.get("Date"))
                 raw_source = message_bytes.decode("utf-8", errors="replace")
 
@@ -334,7 +384,7 @@ class AureMailImapClient:
                         uid=uid,
                         message_id_header=message_id_header,
                         from_name=from_name,
-                        from_email=from_email or email_address,
+                        from_email=from_email,
                         to_email=to_email,
                         cc_email=cc_email,
                         subject=subject,

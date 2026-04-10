@@ -3,6 +3,7 @@ import os
 import re
 import urllib.parse
 import urllib.request
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -24,13 +25,35 @@ DOMAIN_REGEX = re.compile(
     r"^(?=.{1,255}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$"
 )
 
-AUREMAIL_PUBLIC_IP = os.getenv("AUREMAIL_PUBLIC_IP", "").strip()
-AUREMAIL_PANEL_PUBLIC_HOST = os.getenv("AUREMAIL_PANEL_PUBLIC_HOST", "").strip().lower()
-AUREMAIL_MAIL_SERVER_HOST = os.getenv("AUREMAIL_MAIL_SERVER_HOST", "").strip().lower()
-AUREMAIL_DKIM_SELECTOR = os.getenv("AUREMAIL_DKIM_SELECTOR", "default").strip().lower()
-AUREMAIL_DKIM_PUBLIC_KEY = os.getenv("AUREMAIL_DKIM_PUBLIC_KEY", "").strip()
-AUREMAIL_DMARC_REPORT_LOCAL_PART = os.getenv("AUREMAIL_DMARC_REPORT_LOCAL_PART", "dmarc").strip().lower()
-AUREMAIL_DNS_TTL = os.getenv("AUREMAIL_DNS_TTL", "3600").strip() or "3600"
+
+def _env_str(name: str, default: str = "") -> str:
+    return (os.getenv(name, default) or default).strip()
+
+
+def _env_lower(name: str, default: str = "") -> str:
+    return _env_str(name, default).lower()
+
+
+def _env_dns_ttl() -> str:
+    raw = _env_str("AUREMAIL_DNS_TTL", "3600")
+    try:
+        value = int(raw)
+    except ValueError:
+        return "3600"
+
+    if value <= 0:
+        return "3600"
+
+    return str(value)
+
+
+AUREMAIL_PUBLIC_IP = _env_str("AUREMAIL_PUBLIC_IP")
+AUREMAIL_PANEL_PUBLIC_HOST = _env_lower("AUREMAIL_PANEL_PUBLIC_HOST")
+AUREMAIL_MAIL_SERVER_HOST = _env_lower("AUREMAIL_MAIL_SERVER_HOST")
+AUREMAIL_DKIM_SELECTOR = _env_lower("AUREMAIL_DKIM_SELECTOR", "default") or "default"
+AUREMAIL_DKIM_PUBLIC_KEY = _env_str("AUREMAIL_DKIM_PUBLIC_KEY")
+AUREMAIL_DMARC_REPORT_LOCAL_PART = _env_lower("AUREMAIL_DMARC_REPORT_LOCAL_PART", "dmarc") or "dmarc"
+AUREMAIL_DNS_TTL = _env_dns_ttl()
 
 
 class DomainCreateRequest(BaseModel):
@@ -54,6 +77,8 @@ def normalize_domain_name(value: str) -> str:
     domain = re.sub(r"^https?://", "", domain)
     domain = re.sub(r"^www\.", "", domain)
     domain = domain.split("/")[0]
+    domain = domain.split("?")[0]
+    domain = domain.split("#")[0]
     domain = domain.strip(".")
     return domain
 
@@ -68,10 +93,10 @@ def normalize_status(value: str) -> str:
     return status_value if status_value in allowed else "pending"
 
 
-def serialize_domain(domain: Dominio) -> dict:
+def serialize_domain(domain: Dominio) -> dict[str, Any]:
     return {
-        "id": domain.id,
-        "empresa_id": domain.empresa_id,
+        "id": int(domain.id),
+        "empresa_id": int(domain.empresa_id),
         "name": domain.name,
         "status": domain.status,
         "is_primary": bool(domain.is_primary),
@@ -94,14 +119,37 @@ def get_domain_for_user(db: Session, domain_id: int, empresa_id: int) -> Dominio
     return domain
 
 
-def unset_other_primary_domains(db: Session, empresa_id: int, except_id: int | None = None) -> None:
+def get_domain_by_name_for_company(
+    db: Session,
+    empresa_id: int,
+    domain_name: str,
+    except_id: int | None = None,
+) -> Dominio | None:
+    query = db.query(Dominio).filter(
+        Dominio.empresa_id == empresa_id,
+        Dominio.name == domain_name,
+    )
+    if except_id is not None:
+        query = query.filter(Dominio.id != except_id)
+    return query.first()
+
+
+def unset_other_primary_domains(
+    db: Session,
+    empresa_id: int,
+    except_id: int | None = None,
+) -> None:
     query = db.query(Dominio).filter(Dominio.empresa_id == empresa_id)
     if except_id is not None:
         query = query.filter(Dominio.id != except_id)
     query.update({Dominio.is_primary: False}, synchronize_session=False)
 
 
-def get_fallback_domain(db: Session, empresa_id: int, except_id: int | None = None) -> Dominio | None:
+def get_fallback_domain(
+    db: Session,
+    empresa_id: int,
+    except_id: int | None = None,
+) -> Dominio | None:
     query = db.query(Dominio).filter(Dominio.empresa_id == empresa_id)
     if except_id is not None:
         query = query.filter(Dominio.id != except_id)
@@ -115,8 +163,7 @@ def build_spf_value() -> str:
 
 
 def build_dmarc_email(domain_name: str) -> str:
-    local_part = AUREMAIL_DMARC_REPORT_LOCAL_PART or "dmarc"
-    return f"{local_part}@{domain_name}"
+    return f"{AUREMAIL_DMARC_REPORT_LOCAL_PART}@{domain_name}"
 
 
 def build_dmarc_value(domain_name: str) -> str:
@@ -144,76 +191,97 @@ def normalize_txt_value(value: str) -> str:
 def doh_lookup(name: str, record_type: str) -> list[str]:
     query = urllib.parse.urlencode({"name": name, "type": record_type})
     url = f"https://dns.google/resolve?{query}"
+
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "AureMail/1.0",
+        },
+    )
+
     try:
-        with urllib.request.urlopen(url, timeout=8) as response:
+        with urllib.request.urlopen(request, timeout=8) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except Exception:
         return []
+
     answers = payload.get("Answer") or []
-    return [str(item.get("data", "")) for item in answers]
+    return [str(item.get("data", "")) for item in answers if item.get("data")]
 
 
-def build_dns_records(domain_name: str) -> list[dict]:
+def build_dns_records(domain_name: str) -> list[dict[str, Any]]:
     dkim_host = f"{AUREMAIL_DKIM_SELECTOR}._domainkey.{domain_name}"
     has_dkim_key = bool(AUREMAIL_DKIM_PUBLIC_KEY)
-    records = [
+
+    mx_value = (
+        f"10 {AUREMAIL_MAIL_SERVER_HOST}"
+        if AUREMAIL_MAIL_SERVER_HOST
+        else "CONFIGURE AUREMAIL_MAIL_SERVER_HOST"
+    )
+    spf_value = build_spf_value()
+    dmarc_value = build_dmarc_value(domain_name)
+
+    return [
         {
             "key": "mx",
             "label": "Entrada de e-mail",
-            "description": "Registro MX do domínio principal apontando para o servidor central do AureMail",
+            "description": "Registro MX do domínio principal apontando para o servidor central do AureMail.",
             "type": "MX",
             "host": "@",
             "fqdn": domain_name,
-            "value": f"10 {AUREMAIL_MAIL_SERVER_HOST}",
-            "display_value": f"10 {AUREMAIL_MAIL_SERVER_HOST}" if AUREMAIL_MAIL_SERVER_HOST else "CONFIGURE AUREMAIL_MAIL_SERVER_HOST",
-            "copy_value": f"10 {AUREMAIL_MAIL_SERVER_HOST}" if AUREMAIL_MAIL_SERVER_HOST else "",
+            "value": mx_value,
+            "display_value": mx_value,
+            "copy_value": "" if mx_value.startswith("CONFIGURE ") else mx_value,
             "ttl": AUREMAIL_DNS_TTL,
             "required": True,
         },
         {
             "key": "spf",
             "label": "SPF",
-            "description": "Autoriza o servidor central do AureMail a enviar pelo domínio",
+            "description": "Autoriza o servidor central do AureMail a enviar pelo domínio.",
             "type": "TXT",
             "host": "@",
             "fqdn": domain_name,
-            "value": build_spf_value(),
-            "display_value": build_spf_value(),
-            "copy_value": build_spf_value() if AUREMAIL_MAIL_SERVER_HOST else "",
+            "value": spf_value,
+            "display_value": spf_value,
+            "copy_value": "" if spf_value.startswith("CONFIGURE ") else spf_value,
             "ttl": AUREMAIL_DNS_TTL,
             "required": True,
         },
         {
             "key": "dmarc",
             "label": "DMARC",
-            "description": "Política inicial de autenticação e relatórios",
+            "description": "Política inicial de autenticação e relatórios.",
             "type": "TXT",
             "host": "_dmarc",
             "fqdn": f"_dmarc.{domain_name}",
-            "value": build_dmarc_value(domain_name),
-            "display_value": build_dmarc_value(domain_name),
-            "copy_value": build_dmarc_value(domain_name),
+            "value": dmarc_value,
+            "display_value": dmarc_value,
+            "copy_value": dmarc_value,
             "ttl": AUREMAIL_DNS_TTL,
             "required": True,
         },
         {
             "key": "dkim",
             "label": "DKIM",
-            "description": "Chave pública do domínio para assinatura DKIM",
+            "description": "Chave pública do domínio para assinatura DKIM.",
             "type": "TXT",
             "host": f"{AUREMAIL_DKIM_SELECTOR}._domainkey",
             "fqdn": dkim_host,
             "value": AUREMAIL_DKIM_PUBLIC_KEY,
-            "display_value": AUREMAIL_DKIM_PUBLIC_KEY or "GERAR CHAVE DKIM NO STALWART E PREENCHER AUREMAIL_DKIM_PUBLIC_KEY",
+            "display_value": (
+                AUREMAIL_DKIM_PUBLIC_KEY
+                or "GERAR CHAVE DKIM NO STALWART E PREENCHER AUREMAIL_DKIM_PUBLIC_KEY"
+            ),
             "copy_value": AUREMAIL_DKIM_PUBLIC_KEY or "",
             "ttl": AUREMAIL_DNS_TTL,
             "required": has_dkim_key,
         },
     ]
-    return records
 
 
-def build_dns_setup_payload(domain: Dominio) -> dict:
+def build_dns_setup_payload(domain: Dominio) -> dict[str, Any]:
     domain_name = domain.name
     warnings: list[str] = []
 
@@ -222,15 +290,17 @@ def build_dns_setup_payload(domain: Dominio) -> dict:
             "A variável AUREMAIL_MAIL_SERVER_HOST ainda não está configurada no backend. "
             "Sem ela, o MX e o SPF ficam incompletos."
         )
+
     if not AUREMAIL_PANEL_PUBLIC_HOST:
         warnings.append(
             "A variável AUREMAIL_PANEL_PUBLIC_HOST ainda não está configurada. "
-            "Ela é usada só como referência do painel web, não como registro DNS do cliente."
+            "Ela é usada apenas como referência do painel, não como registro DNS do cliente."
         )
+
     if not AUREMAIL_DKIM_PUBLIC_KEY:
         warnings.append(
             "A variável AUREMAIL_DKIM_PUBLIC_KEY ainda está vazia. "
-            "Você vai preencher isso depois de gerar a chave pública DKIM no Stalwart."
+            "Preencha isso depois de gerar a chave pública DKIM no Stalwart."
         )
 
     return {
@@ -250,7 +320,7 @@ def build_dns_setup_payload(domain: Dominio) -> dict:
         "records": build_dns_records(domain_name),
         "warnings": warnings,
         "steps": [
-            "O cliente não precisa criar mail.cliente.com nem painel.cliente.com.",
+            "O cliente não precisa criar mail.seu-dominio.com nem painel.seu-dominio.com.",
             "No provedor DNS do domínio, crie apenas os registros mostrados na tabela.",
             "O MX do cliente deve apontar para o servidor central do AureMail.",
             "Depois de salvar os registros, aguarde a propagação DNS e clique em Verificar DNS.",
@@ -259,16 +329,17 @@ def build_dns_setup_payload(domain: Dominio) -> dict:
     }
 
 
-def verify_single_record(record: dict) -> dict:
-    expected_value = record.get("value") or ""
-    record_type = (record.get("type") or "").upper()
-    fqdn = record.get("fqdn") or ""
-    key = record.get("key") or ""
+def verify_single_record(record: dict[str, Any]) -> dict[str, Any]:
+    expected_value = str(record.get("value") or "").strip()
+    record_type = str(record.get("type") or "").upper()
+    fqdn = str(record.get("fqdn") or "").strip()
+    key = str(record.get("key") or "").strip()
 
-    if not expected_value or str(expected_value).startswith("CONFIGURE "):
+    if not expected_value or expected_value.startswith("CONFIGURE "):
         return {
             "key": key,
             "status": "pending_config",
+            "expected_value": expected_value,
             "found_values": [],
             "message": "Valor ainda não configurado no backend.",
         }
@@ -290,6 +361,7 @@ def verify_single_record(record: dict) -> dict:
     return {
         "key": key,
         "status": "ok" if matched else "error",
+        "expected_value": expected_value,
         "found_values": found_values,
         "message": "Registro encontrado." if matched else "Registro ainda não bate com o esperado.",
     }
@@ -299,7 +371,11 @@ def maybe_provision_domain(domain_name: str) -> None:
     client = get_stalwart_client()
     if not client.enabled:
         return
-    client.create_domain(domain_name, description=f"Domínio gerado pelo AureMail: {domain_name}")
+
+    client.create_domain(
+        domain_name,
+        description=f"Domínio gerado pelo AureMail: {domain_name}",
+    )
 
 
 @router.get("")
@@ -313,7 +389,12 @@ def list_domains(
         .order_by(Dominio.is_primary.desc(), Dominio.created_at.asc(), Dominio.id.asc())
         .all()
     )
-    return {"success": True, "items": [serialize_domain(item) for item in domains], "count": len(domains)}
+
+    return {
+        "success": True,
+        "items": [serialize_domain(item) for item in domains],
+        "count": len(domains),
+    }
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -326,9 +407,18 @@ def create_domain(
     if not validate_domain_name(domain_name):
         raise HTTPException(status_code=400, detail="Informe um domínio válido.")
 
+    existing = get_domain_by_name_for_company(db, current_user.empresa_id, domain_name)
+    if existing:
+        raise HTTPException(status_code=409, detail="Esse domínio já está cadastrado.")
+
     status_value = normalize_status(data.status)
-    has_any = db.query(Dominio).filter(Dominio.empresa_id == current_user.empresa_id).first()
+    has_any = (
+        db.query(Dominio)
+        .filter(Dominio.empresa_id == current_user.empresa_id)
+        .first()
+    )
     make_primary = bool(data.is_primary or not has_any)
+
     if make_primary:
         unset_other_primary_domains(db, current_user.empresa_id)
 
@@ -341,6 +431,7 @@ def create_domain(
     db.add(domain)
 
     try:
+        db.flush()
         maybe_provision_domain(domain_name)
         db.commit()
         db.refresh(domain)
@@ -366,13 +457,23 @@ def update_domain(
     db: Session = Depends(get_db),
 ):
     domain = get_domain_for_user(db, domain_id, current_user.empresa_id)
-    was_primary = bool(domain.is_primary)
     old_domain_name = domain.name
+    was_primary = bool(domain.is_primary)
 
     if data.name is not None:
         domain_name = normalize_domain_name(data.name)
         if not validate_domain_name(domain_name):
             raise HTTPException(status_code=400, detail="Informe um domínio válido.")
+
+        existing = get_domain_by_name_for_company(
+            db,
+            current_user.empresa_id,
+            domain_name,
+            except_id=domain.id,
+        )
+        if existing:
+            raise HTTPException(status_code=409, detail="Esse domínio já está cadastrado.")
+
         domain.name = domain_name
 
     if data.status is not None:
@@ -390,9 +491,12 @@ def update_domain(
             domain.is_primary = True
 
     try:
+        db.flush()
+
         client = get_stalwart_client()
         if client.enabled and old_domain_name != domain.name:
             client.rename_domain(old_domain_name, domain.name)
+
         db.commit()
         db.refresh(domain)
     except IntegrityError:
@@ -416,11 +520,18 @@ def set_primary_domain(
     db: Session = Depends(get_db),
 ):
     domain = get_domain_for_user(db, domain_id, current_user.empresa_id)
+
     unset_other_primary_domains(db, current_user.empresa_id, except_id=domain.id)
     domain.is_primary = True
+
     db.commit()
     db.refresh(domain)
-    return {"success": True, "message": "Domínio principal definido com sucesso.", "item": serialize_domain(domain)}
+
+    return {
+        "success": True,
+        "message": "Domínio principal definido com sucesso.",
+        "item": serialize_domain(domain),
+    }
 
 
 @router.delete("/{domain_id}")
@@ -434,21 +545,28 @@ def delete_domain(
     deleted_item = serialize_domain(domain)
 
     try:
-        client = get_stalwart_client()
-        if client.enabled:
-            client.delete_domain(domain.name)
         db.delete(domain)
         db.flush()
+
         if was_primary:
             fallback = get_fallback_domain(db, current_user.empresa_id)
             if fallback:
                 fallback.is_primary = True
+
+        client = get_stalwart_client()
+        if client.enabled:
+            client.delete_domain(domain.name)
+
         db.commit()
     except StalwartProvisioningError as exc:
         db.rollback()
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    return {"success": True, "message": "Domínio removido com sucesso.", "deleted": deleted_item}
+    return {
+        "success": True,
+        "message": "Domínio removido com sucesso.",
+        "deleted": deleted_item,
+    }
 
 
 @router.get("/{domain_id}/dns-setup")
@@ -479,7 +597,11 @@ def verify_domain_dns(
         if item.get("key") in required_keys
     )
 
-    domain.status = "active" if required_ok else (domain.status if domain.status == "inactive" else "pending")
+    if required_ok:
+        domain.status = "active"
+    elif domain.status != "inactive":
+        domain.status = "pending"
+
     db.commit()
     db.refresh(domain)
 
@@ -499,6 +621,7 @@ def provision_domain_on_stalwart(
     db: Session = Depends(get_db),
 ):
     domain = get_domain_for_user(db, domain_id, current_user.empresa_id)
+
     try:
         maybe_provision_domain(domain.name)
     except StalwartProvisioningError as exc:

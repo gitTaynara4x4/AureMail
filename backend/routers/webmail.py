@@ -53,6 +53,11 @@ def normalize_text(value: str | None) -> str | None:
     return text or None
 
 
+def normalize_email_address(value: str | None) -> str | None:
+    text = normalize_text(value)
+    return text.lower() if text else None
+
+
 def preview_from_body(body: str | None, max_len: int = 180) -> str | None:
     if not body:
         return None
@@ -83,10 +88,10 @@ def get_company(db: Session, empresa_id: int) -> Empresa | None:
     )
 
 
-def serialize_domain(domain: Dominio) -> dict:
+def serialize_domain(domain: Dominio) -> dict[str, Any]:
     return {
-        "id": domain.id,
-        "empresa_id": domain.empresa_id,
+        "id": int(domain.id),
+        "empresa_id": int(domain.empresa_id),
         "name": domain.name,
         "status": domain.status,
         "is_primary": bool(domain.is_primary),
@@ -95,12 +100,12 @@ def serialize_domain(domain: Dominio) -> dict:
     }
 
 
-def serialize_mailbox(mailbox: CaixaEmail) -> dict:
+def serialize_mailbox(mailbox: CaixaEmail) -> dict[str, Any]:
     domain_name = mailbox.dominio.name if mailbox.dominio else None
     return {
-        "id": mailbox.id,
-        "empresa_id": mailbox.empresa_id,
-        "dominio_id": mailbox.dominio_id,
+        "id": int(mailbox.id),
+        "empresa_id": int(mailbox.empresa_id),
+        "dominio_id": int(mailbox.dominio_id),
         "domain_name": domain_name,
         "local_part": mailbox.local_part,
         "email": mailbox.email,
@@ -113,12 +118,12 @@ def serialize_mailbox(mailbox: CaixaEmail) -> dict:
     }
 
 
-def serialize_message_summary(link: CaixaMensagem) -> dict:
+def serialize_message_summary(link: CaixaMensagem) -> dict[str, Any]:
     msg = link.mensagem
     folder_slug = link.pasta.slug if link.pasta else None
 
     return {
-        "id": msg.id,
+        "id": int(msg.id),
         "folder": folder_slug,
         "is_read": bool(link.is_read),
         "is_starred": bool(link.is_starred),
@@ -135,7 +140,7 @@ def serialize_message_summary(link: CaixaMensagem) -> dict:
     }
 
 
-def serialize_message_detail(link: CaixaMensagem) -> dict:
+def serialize_message_detail(link: CaixaMensagem) -> dict[str, Any]:
     data = serialize_message_summary(link)
     msg = link.mensagem
     data.update(
@@ -151,8 +156,10 @@ def serialize_message_detail(link: CaixaMensagem) -> dict:
 
 def ensure_default_folders(db: Session, mailbox: CaixaEmail) -> bool:
     existing = {
-        row.slug
-        for row in db.query(Pasta.slug).filter(Pasta.caixa_email_id == mailbox.id).all()
+        row[0]
+        for row in db.query(Pasta.slug)
+        .filter(Pasta.caixa_email_id == mailbox.id)
+        .all()
     }
 
     changed = False
@@ -225,7 +232,12 @@ def get_required_mailbox_for_company(
     mailbox_id: int,
     only_active: bool = False,
 ) -> CaixaEmail:
-    mailbox = get_mailbox_for_company(db, empresa_id, mailbox_id, only_active=only_active)
+    mailbox = get_mailbox_for_company(
+        db,
+        empresa_id=empresa_id,
+        mailbox_id=mailbox_id,
+        only_active=only_active,
+    )
     if not mailbox:
         raise HTTPException(status_code=404, detail="Caixa de e-mail não encontrada.")
     return mailbox
@@ -258,26 +270,27 @@ def resolve_selected_context(
     requested_domain_id: int | None,
     requested_mailbox_id: int | None,
 ) -> tuple[Dominio | None, CaixaEmail | None]:
-    domain_map = {item.id: item for item in domains}
-    mailbox_map = {item.id: item for item in mailboxes}
+    domain_map = {int(item.id): item for item in domains}
+    mailbox_map = {int(item.id): item for item in mailboxes}
 
-    selected_domain = domain_map.get(requested_domain_id) if requested_domain_id else None
-    selected_mailbox = mailbox_map.get(requested_mailbox_id) if requested_mailbox_id else None
+    selected_domain = domain_map.get(int(requested_domain_id)) if requested_domain_id else None
+    selected_mailbox = mailbox_map.get(int(requested_mailbox_id)) if requested_mailbox_id else None
 
     if selected_mailbox:
-        selected_domain = domain_map.get(selected_mailbox.dominio_id)
+        selected_domain = domain_map.get(int(selected_mailbox.dominio_id))
 
     if not selected_domain:
         selected_domain = next((item for item in domains if item.is_primary), None)
+
     if not selected_domain and domains:
         selected_domain = domains[0]
 
     domain_mailboxes = [
         item for item in mailboxes
-        if selected_domain and item.dominio_id == selected_domain.id
+        if selected_domain and int(item.dominio_id) == int(selected_domain.id)
     ]
 
-    if selected_mailbox and selected_domain and selected_mailbox.dominio_id != selected_domain.id:
+    if selected_mailbox and selected_domain and int(selected_mailbox.dominio_id) != int(selected_domain.id):
         selected_mailbox = None
 
     if not selected_mailbox:
@@ -287,7 +300,7 @@ def resolve_selected_context(
         selected_mailbox = domain_mailboxes[0]
 
     if not selected_domain and selected_mailbox:
-        selected_domain = domain_map.get(selected_mailbox.dominio_id)
+        selected_domain = domain_map.get(int(selected_mailbox.dominio_id))
 
     return selected_domain, selected_mailbox
 
@@ -310,6 +323,17 @@ def get_link_for_mailbox(db: Session, mailbox_id: int, message_id: int) -> Caixa
         raise HTTPException(status_code=404, detail="Mensagem não encontrada.")
 
     return link
+
+
+def get_required_mailbox_secret(mailbox: CaixaEmail) -> str:
+    smtp_password_enc = getattr(mailbox, "smtp_password_enc", None)
+    if not smtp_password_enc:
+        raise HTTPException(
+            status_code=500,
+            detail="A caixa não possui senha criptografada para sincronização/envio. Redefina a senha da caixa.",
+        )
+
+    return decrypt_secret(smtp_password_enc)
 
 
 def save_outbound_message(
@@ -436,15 +460,9 @@ def sync_mailbox_inbox(
     if not inbox_folder:
         raise HTTPException(status_code=500, detail="Pasta de entrada não encontrada.")
 
-    smtp_password_enc = getattr(mailbox, "smtp_password_enc", None)
-    if not smtp_password_enc:
-        raise HTTPException(
-            status_code=500,
-            detail="A caixa não possui senha criptografada para sincronização IMAP. Redefina a senha da caixa.",
-        )
-
-    password = decrypt_secret(smtp_password_enc)
+    password = get_required_mailbox_secret(mailbox)
     imap_client = get_imap_client()
+
     remote_messages = imap_client.fetch_inbox_messages(
         email_address=mailbox.email,
         password=password,
@@ -477,6 +495,43 @@ def sync_mailbox_inbox(
     }
 
 
+def try_sync_mailbox_inbox(
+    *,
+    db: Session,
+    mailbox: CaixaEmail,
+) -> tuple[dict[str, int] | None, str | None]:
+    try:
+        result = sync_mailbox_inbox(db=db, mailbox=mailbox)
+        return result, None
+    except SecretCryptoError as exc:
+        db.rollback()
+        logger.exception(
+            "Erro de criptografia ao sincronizar IMAP | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
+        return None, str(exc)
+    except ImapSyncError as exc:
+        db.rollback()
+        logger.exception(
+            "Erro IMAP ao sincronizar inbox | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
+        return None, f"Erro IMAP: {exc}"
+    except HTTPException as exc:
+        db.rollback()
+        return None, exc.detail if isinstance(exc.detail, str) else "Erro na sincronização."
+    except Exception:
+        db.rollback()
+        logger.exception(
+            "Erro inesperado ao sincronizar inbox | mailbox_id=%s | email=%s",
+            mailbox.id,
+            mailbox.email,
+        )
+        return None, "Erro inesperado ao sincronizar inbox."
+
+
 @router.get("/context")
 def webmail_context(
     dominio_id: int | None = Query(default=None),
@@ -488,10 +543,14 @@ def webmail_context(
     company = get_company(db, empresa_id)
 
     if actor_kind(actor) == "mailbox_user":
+        current_actor_mailbox = actor_mailbox(actor)
+        if not current_actor_mailbox:
+            raise HTTPException(status_code=401, detail="Sessão de caixa inválida.")
+
         mailbox = get_accessible_mailbox(
             db,
             actor=actor,
-            mailbox_id=int(actor_mailbox(actor).id),
+            mailbox_id=int(current_actor_mailbox.id),
             only_active=True,
         )
         changed = ensure_default_folders(db, mailbox)
@@ -506,8 +565,8 @@ def webmail_context(
             "success": True,
             "auth_mode": "mailbox",
             "user": {
-                "id": mailbox.id,
-                "empresa_id": mailbox.empresa_id,
+                "id": int(mailbox.id),
+                "empresa_id": int(mailbox.empresa_id),
                 "name": mailbox.display_name or mailbox.local_part,
                 "email": mailbox.email,
                 "is_owner": False,
@@ -515,15 +574,15 @@ def webmail_context(
                 "account_type": "mailbox_user",
             },
             "company": {
-                "id": company.id if company else None,
+                "id": int(company.id) if company else None,
                 "name": company.name if company else None,
                 "status": company.status if company else None,
                 "cnpj_cpf": company.cnpj_cpf if company else None,
             },
             "domains": [serialize_domain(item) for item in domains],
             "mailboxes": [serialize_mailbox(item) for item in mailboxes],
-            "selected_domain_id": domain.id if domain else None,
-            "selected_mailbox_id": mailbox.id,
+            "selected_domain_id": int(domain.id) if domain else None,
+            "selected_mailbox_id": int(mailbox.id),
         }
 
     current_user = actor["platform_user"]
@@ -559,8 +618,8 @@ def webmail_context(
         "success": True,
         "auth_mode": "platform",
         "user": {
-            "id": current_user.id,
-            "empresa_id": current_user.empresa_id,
+            "id": int(current_user.id),
+            "empresa_id": int(current_user.empresa_id),
             "name": current_user.name,
             "email": current_user.email,
             "is_owner": bool(current_user.is_owner),
@@ -568,15 +627,15 @@ def webmail_context(
             "account_type": "platform_user",
         },
         "company": {
-            "id": company.id if company else None,
+            "id": int(company.id) if company else None,
             "name": company.name if company else None,
             "status": company.status if company else None,
             "cnpj_cpf": company.cnpj_cpf if company else None,
         },
         "domains": [serialize_domain(item) for item in domains],
         "mailboxes": [serialize_mailbox(item) for item in mailboxes],
-        "selected_domain_id": selected_domain.id if selected_domain else None,
-        "selected_mailbox_id": selected_mailbox.id if selected_mailbox else None,
+        "selected_domain_id": int(selected_domain.id) if selected_domain else None,
+        "selected_mailbox_id": int(selected_mailbox.id) if selected_mailbox else None,
     }
 
 
@@ -658,39 +717,11 @@ def list_messages(
     if changed:
         db.commit()
 
+    sync_stats: dict[str, int] | None = None
+    sync_error: str | None = None
+
     if folder_slug == "inbox" and sync:
-        try:
-            sync_mailbox_inbox(db=db, mailbox=mailbox)
-        except SecretCryptoError as exc:
-            db.rollback()
-            logger.exception(
-                "Erro de criptografia ao sincronizar IMAP na listagem | mailbox_id=%s | email=%s",
-                mailbox.id,
-                mailbox.email,
-            )
-            raise HTTPException(status_code=500, detail=str(exc)) from exc
-        except ImapSyncError as exc:
-            db.rollback()
-            logger.exception(
-                "Erro IMAP ao sincronizar inbox na listagem | mailbox_id=%s | email=%s",
-                mailbox.id,
-                mailbox.email,
-            )
-            raise HTTPException(status_code=500, detail=f"Erro IMAP: {exc}") from exc
-        except HTTPException:
-            db.rollback()
-            raise
-        except Exception as exc:
-            db.rollback()
-            logger.exception(
-                "Erro inesperado ao sincronizar inbox na listagem | mailbox_id=%s | email=%s",
-                mailbox.id,
-                mailbox.email,
-            )
-            raise HTTPException(
-                status_code=500,
-                detail="Erro inesperado ao sincronizar inbox.",
-            ) from exc
+        sync_stats, sync_error = try_sync_mailbox_inbox(db=db, mailbox=mailbox)
 
     query = (
         db.query(CaixaMensagem)
@@ -734,6 +765,8 @@ def list_messages(
         "folder_counts": build_folder_counts(db, mailbox.id),
         "items": [serialize_message_summary(item) for item in items],
         "count": len(items),
+        "sync_stats": sync_stats,
+        "sync_error": sync_error,
     }
 
 
@@ -852,7 +885,7 @@ def compose_message(
 
     folder_map = get_folder_map(db, mailbox.id)
 
-    to_email = normalize_text(data.to)
+    to_email = normalize_email_address(data.to)
     subject = normalize_text(data.subject)
     body = normalize_text(data.body)
 
@@ -891,7 +924,7 @@ def compose_message(
                 "folder_counts": build_folder_counts(db, mailbox.id),
             }
 
-        smtp_password = decrypt_secret(mailbox.smtp_password_enc)
+        smtp_password = get_required_mailbox_secret(mailbox)
         smtp_client = get_smtp_client()
 
         message_id_header = smtp_client.send_message(

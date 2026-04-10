@@ -220,6 +220,33 @@ class StalwartClient:
 
         return None
 
+    def _mailbox_identity_candidates(self, email: str) -> list[str]:
+        normalized = self._normalize_email(email)
+        if not normalized:
+            return []
+
+        candidates: list[str] = [normalized]
+
+        if "@" in normalized:
+            local_part = normalized.split("@", 1)[0].strip()
+            if local_part and local_part not in candidates:
+                candidates.append(local_part)
+
+        return candidates
+
+    def find_mailbox_principal(self, email: str) -> dict[str, Any] | None:
+        for candidate in self._mailbox_identity_candidates(email):
+            found = self.find_principal_by_email(candidate)
+            if found:
+                return found
+
+        for candidate in self._mailbox_identity_candidates(email):
+            found = self.find_principal_by_name(candidate, principal_type="individual")
+            if found:
+                return found
+
+        return None
+
     def create_domain(self, domain_name: str, description: str | None = None) -> int:
         domain_name = str(domain_name or "").strip().lower()
         existing = self.find_principal_by_name(domain_name, principal_type="domain")
@@ -286,7 +313,7 @@ class StalwartClient:
         # Força login pelo e-mail completo para evitar desalinhamento legado.
         login_name = email
 
-        existing = self.find_principal_by_email(email)
+        existing = self.find_mailbox_principal(email)
         if existing:
             raise StalwartProvisioningError(
                 f"A caixa {email} já existe no servidor de e-mail."
@@ -333,7 +360,7 @@ class StalwartClient:
         is_active: bool | None = None,
     ) -> None:
         current_email = self._normalize_email(current_email)
-        existing = self.find_principal_by_email(current_email)
+        existing = self.find_mailbox_principal(current_email)
         if not existing:
             raise StalwartProvisioningError(
                 f"A caixa {current_email} não existe no servidor de e-mail."
@@ -398,21 +425,45 @@ class StalwartClient:
             self._request("PATCH", f"/principal/{existing['id']}", operations)
 
     def delete_mailbox_by_email(self, email: str) -> None:
-        existing = self.find_principal_by_email(email)
+        normalized_email = self._normalize_email(email)
+        existing = self.find_mailbox_principal(normalized_email)
+
         if not existing:
-            return
+            raise StalwartProvisioningError(
+                f"A caixa {normalized_email} não foi encontrada no servidor de e-mail."
+            )
 
         principal_id = existing.get("id")
         principal_name = str(existing.get("name") or "").strip()
 
-        try:
-            self._request("DELETE", f"/principal/{principal_id}")
-            return
-        except StalwartProvisioningError:
-            if principal_name:
+        if principal_id is None and not principal_name:
+            raise StalwartProvisioningError(
+                f"Não foi possível identificar o principal da caixa {normalized_email} no servidor de e-mail."
+            )
+
+        first_error: Exception | None = None
+
+        if principal_id is not None:
+            try:
+                self._request("DELETE", f"/principal/{principal_id}")
+                return
+            except StalwartProvisioningError as exc:
+                first_error = exc
+
+        if principal_name:
+            try:
                 self._request("DELETE", f"/principal/{urllib.parse.quote(principal_name, safe='')}")
                 return
-            raise
+            except StalwartProvisioningError as exc:
+                if first_error is None:
+                    first_error = exc
+
+        if first_error is not None:
+            raise first_error
+
+        raise StalwartProvisioningError(
+            f"Não foi possível remover a caixa {normalized_email} no servidor de e-mail."
+        )
 
     def create_dkim_signature(
         self,

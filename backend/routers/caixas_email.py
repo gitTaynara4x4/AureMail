@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import secrets
 
@@ -19,6 +20,7 @@ from backend.utils.crypto import SecretCryptoError, encrypt_secret
 
 
 router = APIRouter(prefix="/api/caixas-email", tags=["Caixas de e-mail"])
+logger = logging.getLogger("auremail.caixas_email")
 
 LOCAL_PART_REGEX = re.compile(r"^[a-z0-9](?:[a-z0-9._-]{0,118}[a-z0-9])?$")
 DEFAULT_FOLDERS = (
@@ -68,7 +70,7 @@ def normalize_display_name(value: str | None) -> str | None:
     return text[:150] if text else None
 
 
-def build_mailbox_password(email: str, raw_password: str | None = None) -> tuple[str, str]:
+def build_mailbox_password(raw_password: str | None = None) -> tuple[str, str]:
     password = raw_password or secrets.token_urlsafe(12)
     return password, hash_password(password)
 
@@ -76,9 +78,9 @@ def build_mailbox_password(email: str, raw_password: str | None = None) -> tuple
 def serialize_mailbox(mailbox: CaixaEmail) -> dict:
     domain_name = mailbox.dominio.name if mailbox.dominio else None
     return {
-        "id": mailbox.id,
-        "empresa_id": mailbox.empresa_id,
-        "dominio_id": mailbox.dominio_id,
+        "id": int(mailbox.id),
+        "empresa_id": int(mailbox.empresa_id),
+        "dominio_id": int(mailbox.dominio_id),
         "domain_name": domain_name,
         "local_part": mailbox.local_part,
         "email": mailbox.email,
@@ -120,11 +122,32 @@ def get_mailbox_for_user(db: Session, mailbox_id: int, empresa_id: int) -> Caixa
     return mailbox
 
 
+def get_mailbox_by_email_for_company(
+    db: Session,
+    empresa_id: int,
+    email: str,
+    except_id: int | None = None,
+) -> CaixaEmail | None:
+    query = db.query(CaixaEmail).filter(
+        CaixaEmail.empresa_id == empresa_id,
+        CaixaEmail.email == email,
+    )
+
+    if except_id is not None:
+        query = query.filter(CaixaEmail.id != except_id)
+
+    return query.first()
+
+
 def ensure_default_folders(db: Session, mailbox: CaixaEmail) -> None:
     existing = {
-        row.slug
-        for row in db.query(Pasta.slug).filter(Pasta.caixa_email_id == mailbox.id).all()
+        row[0]
+        for row in db.query(Pasta.slug)
+        .filter(Pasta.caixa_email_id == mailbox.id)
+        .all()
     }
+
+    changed = False
 
     for folder_name, slug in DEFAULT_FOLDERS:
         if slug not in existing:
@@ -136,12 +159,33 @@ def ensure_default_folders(db: Session, mailbox: CaixaEmail) -> None:
                     system_flag=True,
                 )
             )
+            changed = True
 
-    db.flush()
+    if changed:
+        db.flush()
 
 
 def quota_mb_to_bytes(value: int) -> int:
     return int(value) * 1024 * 1024
+
+
+def is_remote_absent_error(message: str) -> bool:
+    text = (message or "").strip().lower()
+    if not text:
+        return False
+
+    keywords = (
+        "not found",
+        "não encontrado",
+        "não encontrada",
+        "does not exist",
+        "already absent",
+        "principal not found",
+        "mailbox not found",
+        "account not found",
+        "unknown account",
+    )
+    return any(keyword in text for keyword in keywords)
 
 
 @router.get("")
@@ -153,9 +197,14 @@ def list_mailboxes(
         db.query(CaixaEmail)
         .options(joinedload(CaixaEmail.dominio))
         .filter(CaixaEmail.empresa_id == current_user.empresa_id)
-        .order_by(CaixaEmail.is_active.desc(), CaixaEmail.created_at.asc(), CaixaEmail.id.asc())
+        .order_by(
+            CaixaEmail.is_active.desc(),
+            CaixaEmail.created_at.asc(),
+            CaixaEmail.id.asc(),
+        )
         .all()
     )
+
     return {
         "success": True,
         "items": [serialize_mailbox(item) for item in items],
@@ -179,8 +228,17 @@ def create_mailbox(
         )
 
     email = f"{local_part}@{domain.name}"
+
+    existing = get_mailbox_by_email_for_company(
+        db,
+        empresa_id=current_user.empresa_id,
+        email=email,
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="Essa caixa já está cadastrada.")
+
     display_name = normalize_display_name(data.display_name)
-    plain_password, password_hash = build_mailbox_password(email, data.password)
+    plain_password, password_hash = build_mailbox_password(data.password)
 
     try:
         smtp_password_enc = encrypt_secret(plain_password)
@@ -218,6 +276,7 @@ def create_mailbox(
 
         db.commit()
         db.refresh(mailbox)
+
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Essa caixa já está cadastrada.")
@@ -260,7 +319,18 @@ def update_mailbox(
     if mailbox.dominio is None:
         mailbox.dominio = get_domain_for_user(db, mailbox.dominio_id, current_user.empresa_id)
 
-    mailbox.email = f"{mailbox.local_part}@{mailbox.dominio.name}"
+    new_email = f"{mailbox.local_part}@{mailbox.dominio.name}"
+
+    existing = get_mailbox_by_email_for_company(
+        db,
+        empresa_id=current_user.empresa_id,
+        email=new_email,
+        except_id=mailbox.id,
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="Já existe uma caixa com esse endereço.")
+
+    mailbox.email = new_email
 
     if data.display_name is not None:
         mailbox.display_name = normalize_display_name(data.display_name)
@@ -272,6 +342,8 @@ def update_mailbox(
         mailbox.is_admin = bool(data.is_admin)
 
     try:
+        db.flush()
+
         client = get_stalwart_client()
         if client.enabled:
             client.update_mailbox_by_email(
@@ -285,6 +357,7 @@ def update_mailbox(
 
         db.commit()
         db.refresh(mailbox)
+
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Já existe uma caixa com esse endereço.")
@@ -326,6 +399,7 @@ def set_mailbox_password(
 
         db.commit()
         db.refresh(mailbox)
+
     except SecretCryptoError as exc:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -348,17 +422,84 @@ def delete_mailbox(
 ):
     mailbox = get_mailbox_for_user(db, mailbox_id, current_user.empresa_id)
     deleted_item = serialize_mailbox(mailbox)
+    mailbox_email = mailbox.email
+
+    logger.info(
+        "Solicitação para excluir caixa | mailbox_id=%s | empresa_id=%s | email=%s",
+        mailbox_id,
+        current_user.empresa_id,
+        mailbox_email,
+    )
 
     try:
+        db.delete(mailbox)
+        db.flush()
+
+        logger.info(
+            "Caixa removida localmente, iniciando exclusão remota | mailbox_id=%s | email=%s",
+            mailbox_id,
+            mailbox_email,
+        )
+
         client = get_stalwart_client()
         if client.enabled:
-            client.delete_mailbox_by_email(mailbox.email)
+            client.delete_mailbox_by_email(mailbox_email)
+            logger.info(
+                "Exclusão remota concluída | mailbox_id=%s | email=%s",
+                mailbox_id,
+                mailbox_email,
+            )
+        else:
+            logger.warning(
+                "Cliente do servidor de e-mail está desativado; exclusão só local | mailbox_id=%s | email=%s",
+                mailbox_id,
+                mailbox_email,
+            )
 
-        db.delete(mailbox)
         db.commit()
+
+        logger.info(
+            "Exclusão confirmada com commit | mailbox_id=%s | empresa_id=%s | email=%s",
+            mailbox_id,
+            current_user.empresa_id,
+            mailbox_email,
+        )
+
     except StalwartProvisioningError as exc:
+        detail = str(exc)
+
+        if is_remote_absent_error(detail):
+            logger.warning(
+                "Caixa não encontrada remotamente; mantendo exclusão local | mailbox_id=%s | email=%s | detail=%s",
+                mailbox_id,
+                mailbox_email,
+                detail,
+            )
+            db.commit()
+            return {
+                "success": True,
+                "message": "Caixa removida com sucesso.",
+                "deleted": deleted_item,
+            }
+
+        logger.error(
+            "Falha ao excluir caixa no servidor remoto; rollback executado | mailbox_id=%s | email=%s | detail=%s",
+            mailbox_id,
+            mailbox_email,
+            detail,
+        )
         db.rollback()
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise HTTPException(status_code=502, detail=detail) from exc
+
+    except Exception:
+        logger.exception(
+            "Erro inesperado ao excluir caixa | mailbox_id=%s | empresa_id=%s | email=%s",
+            mailbox_id,
+            current_user.empresa_id,
+            mailbox_email,
+        )
+        db.rollback()
+        raise
 
     return {
         "success": True,

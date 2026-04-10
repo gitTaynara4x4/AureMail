@@ -22,7 +22,6 @@
         "Crie os registros exatamente como o AureMail mostrar.",
       ],
       rootHint: "No Registro.br, quando o host for a raiz do domínio, deixe o campo Nome vazio.",
-      aValueLabel: "Endereço IPv4",
       txtValueLabel: "Texto",
       mxPriorityLabel: "Prioridade",
       mxServerLabel: "Nome do servidor de e-mail",
@@ -39,12 +38,11 @@
         "Abra o domínio e vá para DNS / Nameservers ou DNS Zone Editor.",
         "Adicione os registros manualmente.",
       ],
-      rootHint: "Na Hostinger, a raiz do domínio normalmente usa @. Em alguns fluxos, também pode aceitar vazio.",
-      aValueLabel: "Aponta para",
+      rootHint: "Na Hostinger, a raiz do domínio normalmente usa @. Em alguns casos também pode aceitar vazio.",
       txtValueLabel: "Conteúdo",
       mxPriorityLabel: "Prioridade",
       mxServerLabel: "Aponta para",
-      extraNote: "Na Hostinger, se existir TTL padrão e você não quiser mexer, pode deixar o padrão.",
+      extraNote: "Se o painel já tiver TTL padrão e você não quiser mexer, pode manter o valor padrão.",
     },
     {
       id: "cloudflare",
@@ -58,13 +56,11 @@
         "Clique em Add record e crie os registros um por um.",
       ],
       rootHint: "Na Cloudflare, a raiz do domínio normalmente usa @.",
-      aValueLabel: "Content",
       txtValueLabel: "Content",
       mxPriorityLabel: "Priority",
       mxServerLabel: "Mail server",
-      extraNote: "Para o host de e-mail (mail), deixe Proxy status como DNS only.",
+      extraNote: "Se houver qualquer host auxiliar do seu ambiente central, deixe como DNS only. Para os registros exibidos pelo AureMail, apenas replique exatamente os valores mostrados.",
     },
-
     {
       id: "godaddy",
       label: "GoDaddy",
@@ -77,7 +73,6 @@
         "Adicione os registros manualmente.",
       ],
       rootHint: "Na GoDaddy, a raiz do domínio normalmente usa @.",
-      aValueLabel: "Valor",
       txtValueLabel: "Valor",
       mxPriorityLabel: "Prioridade",
       mxServerLabel: "Servidor",
@@ -95,7 +90,6 @@
         "Adicione os registros manualmente.",
       ],
       rootHint: "Na Locaweb, a raiz do domínio costuma ser representada por @.",
-      aValueLabel: "Destino",
       txtValueLabel: "Texto",
       mxPriorityLabel: "Prioridade",
       mxServerLabel: "Servidor",
@@ -113,7 +107,6 @@
         "Adicione os registros manualmente.",
       ],
       rootHint: "Na KingHost, a raiz do domínio costuma ser representada por @.",
-      aValueLabel: "Aponta para",
       txtValueLabel: "Conteúdo",
       mxPriorityLabel: "Prioridade",
       mxServerLabel: "Servidor",
@@ -131,7 +124,6 @@
         "Adicione os registros manualmente.",
       ],
       rootHint: "Na HostGator, a raiz do domínio costuma ser representada por @.",
-      aValueLabel: "Aponta para",
       txtValueLabel: "Conteúdo",
       mxPriorityLabel: "Prioridade",
       mxServerLabel: "Servidor",
@@ -142,14 +134,13 @@
       label: "Namecheap",
       type: "generic",
       rootMode: "@",
-      accessTitle: "How to open in Namecheap",
+      accessTitle: "Como abrir na Namecheap",
       accessSteps: [
-        "Open the domain panel.",
-        "Go to Advanced DNS or DNS records.",
-        "Add the records manually.",
+        "Abra o painel do domínio.",
+        "Entre em Advanced DNS ou DNS Records.",
+        "Adicione os registros manualmente.",
       ],
       rootHint: "Na Namecheap, a raiz do domínio normalmente usa @.",
-      aValueLabel: "Value",
       txtValueLabel: "Value",
       mxPriorityLabel: "Priority",
       mxServerLabel: "Mail server",
@@ -167,7 +158,6 @@
         "Adicione os registros manualmente.",
       ],
       rootHint: "Na IONOS, a raiz do domínio normalmente usa @.",
-      aValueLabel: "Valor",
       txtValueLabel: "Valor",
       mxPriorityLabel: "Prioridade",
       mxServerLabel: "Servidor",
@@ -187,7 +177,7 @@
           </p>
           <ul>
             <li>O domínio já existe no sistema.</li>
-            <li>Os registros como A, MX, SPF, DMARC e DKIM ainda podem estar faltando.</li>
+            <li>Os registros como <strong>MX, SPF e DMARC</strong> ainda podem estar faltando.</li>
             <li>É o status mais comum no começo.</li>
           </ul>
         </div>
@@ -198,7 +188,7 @@
             Use quando o domínio já está pronto para uso no ambiente de e-mail.
           </p>
           <ul>
-            <li>DNS principal já foi configurado.</li>
+            <li>Os registros obrigatórios já foram encontrados.</li>
             <li>O domínio está liberado para seguir para caixas de e-mail.</li>
             <li>É o status de domínio operacional.</li>
           </ul>
@@ -265,6 +255,8 @@
       .replace(/^https?:\/\//, "")
       .replace(/^www\./, "")
       .split("/")[0]
+      .split("?")[0]
+      .split("#")[0]
       .replace(/^\.+|\.+$/g, "");
   }
 
@@ -272,6 +264,7 @@
     const normalized = String(status || "").trim().toLowerCase();
     if (normalized === "active") return "Ativo";
     if (normalized === "inactive") return "Inativo";
+    if (normalized === "error") return "Erro";
     return "Pendente";
   }
 
@@ -311,7 +304,6 @@
     setPageMessage("", "info");
   }
 
-  // --- Função showToast Atualizada para as cores do ChatGPT ---
   function showToast(message, tone = "default") {
     const toast = document.createElement("div");
     toast.textContent = message;
@@ -386,16 +378,73 @@
     $("helpDrawer").setAttribute("aria-hidden", "true");
   }
 
+  function openDomainModal() {
+    resetCreateForm();
+    $("domainModalOverlay")?.classList.add("active");
+    $("domainModal")?.classList.add("active");
+    $("domainModal")?.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+
+    setTimeout(() => {
+      $("domainName")?.focus();
+    }, 30);
+  }
+
+  function closeDomainModal() {
+    $("domainModalOverlay")?.classList.remove("active");
+    $("domainModal")?.classList.remove("active");
+    $("domainModal")?.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+
+  function openGuideModal() {
+    if (!state.selectedDomainSetup) {
+      setPageMessage("Selecione um domínio primeiro.", "info");
+      return;
+    }
+
+    renderGuideModalContent();
+
+    $("guideModalOverlay")?.classList.add("active");
+    $("guideModal")?.classList.add("active");
+    $("guideModal")?.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeGuideModal() {
+    $("guideModalOverlay")?.classList.remove("active");
+    $("guideModal")?.classList.remove("active");
+    $("guideModal")?.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+
   async function parseJson(response) {
     let payload = null;
+    let rawText = "";
+
     try {
-      payload = await response.json();
+      rawText = await response.text();
+    } catch (_) {
+      rawText = "";
+    }
+
+    try {
+      payload = rawText ? JSON.parse(rawText) : null;
     } catch (_) {
       payload = null;
     }
 
     if (!response.ok) {
-      const errorMessage = payload?.detail || payload?.message || `Erro ${response.status}`;
+      let errorMessage =
+        payload?.detail ||
+        payload?.message ||
+        (rawText && !/^</.test(rawText.trim()) ? rawText : "") ||
+        `Erro ${response.status}`;
+
+      if (response.status === 502 && /service is not reachable/i.test(rawText)) {
+        errorMessage = "O serviço do app não está acessível no momento.";
+      }
+
       throw new Error(errorMessage);
     }
 
@@ -487,6 +536,10 @@
     if (state.selectedDomainId) {
       await loadSelectedDomainSetup();
     } else {
+      state.selectedDomainSetup = null;
+      state.selectedDomainVerification = null;
+      state.selectedProviderId = null;
+      renderEnvSummary();
       renderSelectedDomainPanel();
     }
 
@@ -500,6 +553,7 @@
       state.selectedDomainSetup = null;
       state.selectedDomainVerification = null;
       state.selectedProviderId = null;
+      renderEnvSummary();
       renderSelectedDomainPanel();
       return;
     }
@@ -509,6 +563,10 @@
     state.selectedProviderId = null;
     renderEnvSummary();
     renderSelectedDomainPanel();
+
+    if ($("guideModal")?.classList.contains("active")) {
+      renderGuideModalContent();
+    }
   }
 
   function renderEnvSummary() {
@@ -526,6 +584,25 @@
     setText("envDkimSelector", generated.dkim_selector);
   }
 
+  function filterClientWarnings(warnings) {
+    return (Array.isArray(warnings) ? warnings : []).filter((warning) => {
+      const text = String(warning || "").toUpperCase();
+      if (!text) return false;
+      if (text.includes("AUREMAIL_DKIM_PUBLIC_KEY")) return false;
+      if (text.includes("DKIM")) return false;
+      return true;
+    });
+  }
+
+  function shouldHideRecord(record) {
+    const key = String(record?.key || "").trim().toLowerCase();
+    return key === "dkim";
+  }
+
+  function getVisibleRecords(records) {
+    return (Array.isArray(records) ? records : []).filter((record) => !shouldHideRecord(record));
+  }
+
   function renderDomains() {
     const list = $("domainList");
     const count = $("domainsCount");
@@ -540,7 +617,7 @@
     if (!state.domains.length) {
       list.innerHTML = `
         <div class="empty-note">
-          Nenhum domínio cadastrado ainda. Use o formulário ao lado para adicionar o primeiro.
+          Nenhum domínio cadastrado ainda. Use o botão <strong>Novo domínio</strong> para adicionar o primeiro.
         </div>
       `;
       return;
@@ -552,7 +629,13 @@
   function renderDomainItem(item) {
     const isEditing = state.editingId === item.id;
     const isSelected = Number(state.selectedDomainId) === Number(item.id);
-    const statusClass = item.status === "active" ? "active" : (item.status === "pending" ? "pending" : "inactive");
+    const normalizedStatus = String(item.status || "").trim().toLowerCase();
+    const statusClass =
+      normalizedStatus === "active"
+        ? "active"
+        : normalizedStatus === "inactive"
+          ? "inactive"
+          : "pending";
 
     if (isEditing) {
       return `
@@ -567,9 +650,9 @@
               <label for="edit-status-${item.id}">Status</label>
               <div class="select-wrapper">
                 <select id="edit-status-${item.id}" name="status">
-                  <option value="pending" ${item.status === "pending" ? "selected" : ""}>Pendente</option>
-                  <option value="active" ${item.status === "active" ? "selected" : ""}>Ativo</option>
-                  <option value="inactive" ${item.status === "inactive" ? "selected" : ""}>Inativo</option>
+                  <option value="pending" ${normalizedStatus === "pending" ? "selected" : ""}>Pendente</option>
+                  <option value="active" ${normalizedStatus === "active" ? "selected" : ""}>Ativo</option>
+                  <option value="inactive" ${normalizedStatus === "inactive" ? "selected" : ""}>Inativo</option>
                 </select>
                 <svg class="select-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" stroke-width="2">
@@ -621,7 +704,7 @@
 
           <div class="domain-actions">
             <button type="button" class="btn btn-secondary btn-small" data-action="select" data-id="${item.id}">
-              DNS / Guia
+              Selecionar
             </button>
 
             ${!item.is_primary ? `
@@ -661,6 +744,7 @@
     form.reset();
     $("domainStatus").value = "pending";
     $("domainPrimary").checked = false;
+    clearFormMessage();
   }
 
   function verificationEntryFor(key) {
@@ -692,11 +776,21 @@
     return PROVIDERS.find((item) => item.id === state.selectedProviderId) || null;
   }
 
-  function providerHostValue(host, provider) {
+  function providerHostDisplay(host, provider) {
     const normalized = String(host || "").trim();
 
     if (!normalized || normalized === "@") {
       return provider?.rootMode === "blank" ? "(deixe vazio)" : "@";
+    }
+
+    return normalized;
+  }
+
+  function providerHostCopyValue(host, provider) {
+    const normalized = String(host || "").trim();
+
+    if (!normalized || normalized === "@") {
+      return provider?.rootMode === "blank" ? "" : "@";
     }
 
     return normalized;
@@ -723,43 +817,13 @@
     return String(record?.copy_value || record?.display_value || "").trim();
   }
 
-  function isDkimPending(record) {
-    const value = getRecordValue(record).toUpperCase();
-    return record?.key === "dkim" || value.includes("AUREMAIL_DKIM_PUBLIC_KEY") || value.includes("GERAR CHAVE DKIM");
-  }
-
-  function renderProviderButtons() {
-    return `
-      <div class="provider-picker">
-        <div class="provider-picker__head">
-          <h4>Escolha onde seu DNS está hospedado</h4>
-          <p>
-            Clique no provedor usado pelo cliente. O AureMail mostra só o guia daquele painel.
-          </p>
-        </div>
-
-        <div class="provider-grid">
-          ${PROVIDERS.map((provider) => `
-            <button
-              type="button"
-              class="provider-btn ${state.selectedProviderId === provider.id ? "active" : ""}"
-              data-provider-id="${provider.id}"
-            >
-              ${escapeHtml(provider.label)}
-            </button>
-          `).join("")}
-        </div>
-      </div>
-    `;
-  }
-
-  function renderProviderGuide(records, generated) {
+  function renderProviderGuide(records) {
     const provider = getProvider();
 
     if (!provider) {
       return `
         <div class="provider-intro-empty">
-          Escolha um provedor acima para abrir apenas o guia daquele painel.
+          Escolha um provedor acima para abrir o passo a passo exato daquele painel.
         </div>
       `;
     }
@@ -768,7 +832,7 @@
       <div class="provider-guide">
         <div class="provider-guide__head">
           <h4>${escapeHtml(provider.label)}</h4>
-          <p>${provider.type === "exact" ? "Guia mais detalhado" : "Guia inicial/genérico"} para esse provedor.</p>
+          <p>${provider.type === "exact" ? "Guia detalhado" : "Guia inicial"} para esse provedor.</p>
         </div>
 
         <div class="provider-guide__body">
@@ -787,7 +851,7 @@
             </div>
           ` : ""}
 
-          ${records.map((record) => renderProviderRecord(record, provider, generated)).join("")}
+          ${records.map((record, index) => renderProviderRecord(record, provider, index + 1)).join("")}
 
           <div class="provider-summary">
             ${records.map((record) => renderProviderSummaryLine(record, provider)).join("")}
@@ -797,50 +861,27 @@
     `;
   }
 
-  function renderProviderRecord(record, provider, generated) {
+  function renderProviderRecord(record, provider, stepNumber) {
     const type = String(record?.type || "").trim().toUpperCase();
     const value = getRecordValue(record);
-    const hostValue = providerHostValue(record?.host || "", provider);
+    const hostDisplay = providerHostDisplay(record?.host || "", provider);
+    const hostCopy = providerHostCopyValue(record?.host || "", provider);
     const label = record?.label || record?.key || "Registro";
-
-    if (isDkimPending(record)) {
-      return `
-        <article class="provider-record is-later">
-          <div class="provider-record__title">
-            <strong>${escapeHtml(label)}</strong>
-            <span class="provider-record__badge">depois</span>
-          </div>
-
-          <div class="provider-fields">
-            <div class="provider-field">
-              <label>Tipo</label>
-              <code>TXT</code>
-            </div>
-            <div class="provider-field">
-              <label>Nome</label>
-              <code>${escapeHtml(hostValue)}</code>
-            </div>
-            <div class="provider-field">
-              <label>${escapeHtml(provider.txtValueLabel)}</label>
-              <code>Preencher depois com a chave pública DKIM</code>
-            </div>
-          </div>
-
-          <div class="provider-field-note">
-            Não criar agora. Primeiro gere a chave DKIM no servidor de e-mail real.
-          </div>
-        </article>
-      `;
-    }
+    const verification = verificationEntryFor(record.key);
 
     if (type === "MX") {
       const mx = parseMxValue(value);
 
       return `
         <article class="provider-record">
-          <div class="provider-record__title">
-            <strong>${escapeHtml(label)}</strong>
+          <div class="provider-record__top">
+            <span class="provider-record__step">Passo ${stepNumber}</span>
             <span class="provider-record__badge">MX</span>
+          </div>
+
+          <div class="provider-record__title">
+            <h5>${escapeHtml(label)}</h5>
+            <p>Crie este registro no painel DNS do provedor.</p>
           </div>
 
           <div class="provider-fields">
@@ -850,7 +891,7 @@
             </div>
             <div class="provider-field">
               <label>Nome</label>
-              <code>${escapeHtml(hostValue)}</code>
+              <code>${escapeHtml(hostDisplay)}</code>
             </div>
             <div class="provider-field">
               <label>${escapeHtml(provider.mxPriorityLabel)}</label>
@@ -861,89 +902,60 @@
               <code>${escapeHtml(mx.server)}</code>
             </div>
           </div>
-        </article>
-      `;
-    }
 
-    if (type === "A") {
-      const cloudflareExtra = provider.id === "cloudflare"
-        ? `
-          <div class="provider-field">
-            <label>Proxy status</label>
-            <code>${record.host === "mail" ? "DNS only" : "DNS only (recomendado no primeiro setup)"}</code>
-          </div>
-        `
-        : "";
-
-      return `
-        <article class="provider-record">
-          <div class="provider-record__title">
-            <strong>${escapeHtml(label)}</strong>
-            <span class="provider-record__badge">A</span>
+          <div class="provider-copy-row">
+            <button type="button" class="btn btn-secondary btn-small" data-copy="${escapeHtml(hostCopy)}">
+              Copiar nome
+            </button>
+            <button type="button" class="btn btn-secondary btn-small" data-copy="${escapeHtml(mx.server)}">
+              Copiar servidor
+            </button>
           </div>
 
-          <div class="provider-fields">
-            <div class="provider-field">
-              <label>Tipo</label>
-              <code>A</code>
-            </div>
-            <div class="provider-field">
-              <label>Nome</label>
-              <code>${escapeHtml(hostValue)}</code>
-            </div>
-            <div class="provider-field">
-              <label>${escapeHtml(provider.aValueLabel)}</label>
-              <code>${escapeHtml(value)}</code>
-            </div>
-            ${cloudflareExtra}
-          </div>
-        </article>
-      `;
-    }
-
-    if (type === "TXT") {
-      return `
-        <article class="provider-record">
-          <div class="provider-record__title">
-            <strong>${escapeHtml(label)}</strong>
-            <span class="provider-record__badge">TXT</span>
-          </div>
-
-          <div class="provider-fields">
-            <div class="provider-field">
-              <label>Tipo</label>
-              <code>TXT</code>
-            </div>
-            <div class="provider-field">
-              <label>Nome</label>
-              <code>${escapeHtml(hostValue)}</code>
-            </div>
-            <div class="provider-field">
-              <label>${escapeHtml(provider.txtValueLabel)}</label>
-              <code>${escapeHtml(value)}</code>
-            </div>
-          </div>
+          ${renderFoundValues(verification)}
+          <div>${renderVerificationChip(verification)}</div>
         </article>
       `;
     }
 
     return `
       <article class="provider-record">
-        <div class="provider-record__title">
-          <strong>${escapeHtml(label)}</strong>
+        <div class="provider-record__top">
+          <span class="provider-record__step">Passo ${stepNumber}</span>
           <span class="provider-record__badge">${escapeHtml(type || "-")}</span>
+        </div>
+
+        <div class="provider-record__title">
+          <h5>${escapeHtml(label)}</h5>
+          <p>Crie este registro no painel DNS do provedor.</p>
         </div>
 
         <div class="provider-fields">
           <div class="provider-field">
-            <label>Nome</label>
-            <code>${escapeHtml(hostValue)}</code>
+            <label>Tipo</label>
+            <code>${escapeHtml(type)}</code>
           </div>
           <div class="provider-field">
-            <label>Valor</label>
+            <label>Nome</label>
+            <code>${escapeHtml(hostDisplay)}</code>
+          </div>
+          <div class="provider-field provider-field--full">
+            <label>${escapeHtml(provider.txtValueLabel)}</label>
             <code>${escapeHtml(value)}</code>
           </div>
         </div>
+
+        <div class="provider-copy-row">
+          <button type="button" class="btn btn-secondary btn-small" data-copy="${escapeHtml(hostCopy)}">
+            Copiar nome
+          </button>
+          <button type="button" class="btn btn-secondary btn-small" data-copy="${escapeHtml(value)}">
+            Copiar valor
+          </button>
+        </div>
+
+        ${renderFoundValues(verification)}
+        <div>${renderVerificationChip(verification)}</div>
       </article>
     `;
   }
@@ -951,28 +963,20 @@
   function renderProviderSummaryLine(record, provider) {
     const type = String(record?.type || "").trim().toUpperCase();
     const value = getRecordValue(record);
-    const hostValue = providerHostValue(record?.host || "", provider);
-
-    if (isDkimPending(record)) {
-      return `
-        <div class="provider-summary-line">
-          <strong>TXT</strong> | nome <strong>${escapeHtml(hostValue)}</strong> | valor <strong>preencher depois com a chave DKIM</strong>
-        </div>
-      `;
-    }
+    const hostDisplay = providerHostDisplay(record?.host || "", provider);
 
     if (type === "MX") {
       const mx = parseMxValue(value);
       return `
         <div class="provider-summary-line">
-          <strong>MX</strong> | nome <strong>${escapeHtml(hostValue)}</strong> | ${escapeHtml(provider.mxPriorityLabel.toLowerCase())} <strong>${escapeHtml(mx.priority)}</strong> | ${escapeHtml(provider.mxServerLabel.toLowerCase())} <strong>${escapeHtml(mx.server)}</strong>
+          <strong>MX</strong> | nome <strong>${escapeHtml(hostDisplay)}</strong> | ${escapeHtml(provider.mxPriorityLabel.toLowerCase())} <strong>${escapeHtml(mx.priority)}</strong> | ${escapeHtml(provider.mxServerLabel.toLowerCase())} <strong>${escapeHtml(mx.server)}</strong>
         </div>
       `;
     }
 
     return `
       <div class="provider-summary-line">
-        <strong>${escapeHtml(type)}</strong> | nome <strong>${escapeHtml(hostValue)}</strong> | valor <strong>${escapeHtml(value)}</strong>
+        <strong>${escapeHtml(type)}</strong> | nome <strong>${escapeHtml(hostDisplay)}</strong> | valor <strong>${escapeHtml(value)}</strong>
       </div>
     `;
   }
@@ -981,16 +985,18 @@
     const panel = $("selectedDomainPanel");
     const verifyBtn = $("verifyDnsBtn");
     const goMailboxesBtn = $("goMailboxesBtn");
+    const openGuideBtn = $("openGuideModalBtn");
 
     if (!panel) return;
 
-    verifyBtn.disabled = !state.selectedDomainId;
-    goMailboxesBtn.disabled = !state.selectedDomainId;
+    if (verifyBtn) verifyBtn.disabled = !state.selectedDomainId;
+    if (goMailboxesBtn) goMailboxesBtn.disabled = !state.selectedDomainId;
+    if (openGuideBtn) openGuideBtn.disabled = !state.selectedDomainId;
 
     if (!state.selectedDomainSetup) {
       panel.innerHTML = `
         <div class="empty-note">
-          Selecione um domínio na lista para ver o guia de DNS.
+          Selecione um domínio na lista para ver o resumo e abrir o guia passo a passo.
         </div>
       `;
       return;
@@ -999,9 +1005,7 @@
     const payload = state.selectedDomainSetup;
     const domain = payload.domain || {};
     const generated = payload.generated || {};
-    const records = Array.isArray(payload.records) ? payload.records : [];
-    const warnings = Array.isArray(payload.warnings) ? payload.warnings : [];
-    const steps = Array.isArray(payload.steps) ? payload.steps : [];
+    const warnings = filterClientWarnings(payload.warnings);
     const statusText = humanizeStatus(domain.status);
 
     panel.innerHTML = `
@@ -1033,123 +1037,162 @@
         `).join("")}
 
         <div class="notice info">
-          O cliente digita apenas o domínio. O AureMail gera os hosts, os registros
-          e o texto que ele precisa copiar no provedor DNS.
+          Abra o guia para ver o passo a passo completo de configuração no provedor DNS.
         </div>
       </div>
 
-      <div class="details-layout">
-        <div class="records-card">
-          <div class="sub-card-head">
-            <div>
-              <h4>Registros gerados pelo AureMail</h4>
-              <p>Base técnica dos registros. O guia do provedor abre só quando você clicar nele.</p>
-            </div>
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="guide-step__number">1</div>
+          <div>
+            <h4>Escolha o provedor DNS</h4>
+            <p>No guia você seleciona o painel usado pelo cliente, como Registro.br, Hostinger, Cloudflare e outros.</p>
           </div>
-
-          <div class="records-table-wrap">
-            <table class="records-table">
-              <thead>
-                <tr>
-                  <th>Registro</th>
-                  <th>Tipo</th>
-                  <th>Host</th>
-                  <th>Valor</th>
-                  <th>TTL</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${records.map((record) => {
-                  const verification = verificationEntryFor(record.key);
-
-                  return `
-                    <tr>
-                      <td>
-                        <div class="record-name">
-                          <strong>${escapeHtml(record.label || record.key)}</strong>
-                          <span>${escapeHtml(record.description || "")}</span>
-                        </div>
-                      </td>
-                      <td>${escapeHtml(record.type || "-")}</td>
-                      <td>
-                        <div class="record-name">
-                          <strong>${escapeHtml(record.host || "-")}</strong>
-                          <span>${escapeHtml(record.fqdn || "")}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div class="record-value">
-                          <div class="record-code">${escapeHtml(record.display_value || "-")}</div>
-                          <button type="button" class="copy-btn" data-copy="${escapeHtml(record.copy_value || "")}">
-                            Copiar
-                          </button>
-                        </div>
-                        ${renderFoundValues(verification)}
-                      </td>
-                      <td>${escapeHtml(record.ttl || "-")}</td>
-                      <td>${renderVerificationChip(verification)}</td>
-                    </tr>
-                  `;
-                }).join("")}
-              </tbody>
-            </table>
-          </div>
-
-          ${renderProviderButtons()}
-          ${renderProviderGuide(records, generated)}
         </div>
 
-        <div class="instructions-card">
-          <div class="sub-card-head">
-            <div>
-              <h4>Como o cliente preenche</h4>
-              <p>Texto simples para orientar sem confundir.</p>
-            </div>
+        <div class="guide-step">
+          <div class="guide-step__number">2</div>
+          <div>
+            <h4>Copie os registros</h4>
+            <p>O modal mostra nome, tipo e valor de cada registro em ordem, para preencher sem confusão.</p>
           </div>
+        </div>
 
-          <div class="instructions-body">
-            <div class="instructions-group">
-              <h5>Passo a passo</h5>
-              <ol class="instructions-steps">
-                ${steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}
-              </ol>
-            </div>
-
-            <div class="instructions-group">
-              <h5>Resumo rápido</h5>
-              <p>
-                <strong>Domínio:</strong> ${escapeHtml(domain.name || "-")}<br />
-                <strong>Host do app:</strong> ${escapeHtml(generated.app_host || "-")}<br />
-                <strong>Host do mail:</strong> ${escapeHtml(generated.mail_host || "-")}<br />
-                <strong>Relatório DMARC:</strong> ${escapeHtml(generated.dmarc_report_email || "-")}
-              </p>
-            </div>
-
-            <div class="instructions-group">
-              <h5>Importante</h5>
-              <ul class="instructions-steps">
-                <li>Escolha o provedor DNS acima para ver só o passo a passo daquele painel.</li>
-                <li>O DKIM só deve ser criado depois de gerar a chave pública no servidor de e-mail.</li>
-                <li>Depois de criar tudo no DNS, clique em <strong>Verificar DNS</strong>.</li>
-              </ul>
-            </div>
+        <div class="guide-step">
+          <div class="guide-step__number">3</div>
+          <div>
+            <h4>Valide no sistema</h4>
+            <p>Depois de salvar tudo no DNS, clique em <strong>Verificar DNS</strong> para conferir o que já propagou.</p>
           </div>
         </div>
       </div>
     `;
   }
 
-  async function copyText(text) {
-    const value = String(text || "").trim();
-    if (!value) {
-      setPageMessage("Nada para copiar nesse campo ainda.", "error");
+  function renderGuideModalContent() {
+    const content = $("guideModalContent");
+    const title = $("guideModalTitle");
+    const subtitle = $("guideModalSubtitle");
+
+    if (!content || !state.selectedDomainSetup) {
+      if (content) {
+        content.innerHTML = `<div class="empty-note">Selecione um domínio para abrir o guia.</div>`;
+      }
       return;
     }
 
+    const payload = state.selectedDomainSetup;
+    const domain = payload.domain || {};
+    const generated = payload.generated || {};
+    const warnings = filterClientWarnings(payload.warnings);
+    const records = getVisibleRecords(payload.records);
+
+    if (title) title.textContent = "Guia de DNS e ativação";
+    if (subtitle) subtitle.textContent = `Passo a passo para configurar ${domain.name || "o domínio"} no provedor DNS.`;
+
+    content.innerHTML = `
+      <div class="guide-summary">
+        <div class="summary-box">
+          <span>Domínio</span>
+          <strong>${escapeHtml(domain.name || "-")}</strong>
+        </div>
+        <div class="summary-box">
+          <span>Host do app</span>
+          <strong>${escapeHtml(generated.app_host || "-")}</strong>
+        </div>
+        <div class="summary-box">
+          <span>Host do mail</span>
+          <strong>${escapeHtml(generated.mail_host || "-")}</strong>
+        </div>
+      </div>
+
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="guide-step__number">1</div>
+          <div>
+            <h4>Abra o painel DNS do cliente</h4>
+            <p>Primeiro escolha abaixo onde o DNS do domínio está hospedado. O sistema vai adaptar o passo a passo para esse painel.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="guide-step__number">2</div>
+          <div>
+            <h4>Crie os registros na ordem mostrada</h4>
+            <p>Adicione cada registro usando exatamente o nome e o valor exibidos no guia. Copie e cole para evitar erro.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="guide-step__number">3</div>
+          <div>
+            <h4>Aguarde a propagação</h4>
+            <p>Depois de salvar no provedor, pode levar alguns minutos ou mais para refletir. Isso varia conforme o DNS.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="guide-step__number">4</div>
+          <div>
+            <h4>Volte e clique em Verificar DNS</h4>
+            <p>Quando terminar a configuração, feche o guia e use o botão <strong>Verificar DNS</strong> para checar os registros.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="notice-stack">
+        <div class="notice info">
+          O cliente <strong>não precisa criar subdomínio próprio</strong> como mail.cliente.com ou painel.cliente.com. Use apenas os registros exibidos pelo AureMail.
+        </div>
+
+        ${warnings.map((warning) => `
+          <div class="notice warning">${escapeHtml(warning)}</div>
+        `).join("")}
+      </div>
+
+      <div class="provider-picker">
+        <div class="provider-picker__head">
+          <h4>Escolha o provedor DNS</h4>
+          <p>Clique no provedor usado pelo cliente para abrir o passo a passo exato desse painel.</p>
+        </div>
+
+        <div class="provider-grid">
+          ${PROVIDERS.map((provider) => `
+            <button
+              type="button"
+              class="provider-btn ${state.selectedProviderId === provider.id ? "active" : ""}"
+              data-provider-id="${provider.id}"
+            >
+              ${escapeHtml(provider.label)}
+            </button>
+          `).join("")}
+        </div>
+      </div>
+
+      ${renderProviderGuide(records)}
+    `;
+  }
+
+  async function copyText(text) {
+    const value = String(text ?? "");
+    const normalized = value.trim();
+
     try {
-      await navigator.clipboard.writeText(value);
-      setPageMessage("Valor copiado com sucesso.", "success");
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = value;
+        textarea.setAttribute("readonly", "readonly");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+      }
+
+      showToast(normalized ? "Valor copiado com sucesso." : "Campo de nome vazio copiado.");
     } catch (_) {
       setPageMessage("Não consegui copiar automaticamente. Copie manualmente.", "error");
     }
@@ -1182,6 +1225,12 @@
 
       await loadDomains();
       setFormMessage(result?.message || "Domínio cadastrado com sucesso.", "success");
+      showToast(result?.message || "Domínio cadastrado com sucesso.", "success");
+
+      setTimeout(() => {
+        clearFormMessage();
+        closeDomainModal();
+      }, 300);
     } catch (error) {
       setFormMessage(error.message || "Erro ao cadastrar domínio.", "error");
     }
@@ -1198,6 +1247,7 @@
       });
 
       renderSelectedDomainPanel();
+      renderGuideModalContent();
 
       if (state.selectedDomainVerification?.all_required_ok) {
         setPageMessage("Todos os registros obrigatórios foram encontrados corretamente.", "success");
@@ -1210,20 +1260,6 @@
   }
 
   async function handleListClick(event) {
-    const copyButton = event.target.closest("[data-copy]");
-    if (copyButton) {
-      await copyText(copyButton.getAttribute("data-copy"));
-      return;
-    }
-
-    const providerButton = event.target.closest("[data-provider-id]");
-    if (providerButton) {
-      const providerId = providerButton.getAttribute("data-provider-id");
-      state.selectedProviderId = state.selectedProviderId === providerId ? null : providerId;
-      renderSelectedDomainPanel();
-      return;
-    }
-
     const actionButton = event.target.closest("[data-action]");
     if (!actionButton) return;
 
@@ -1237,7 +1273,7 @@
       state.selectedProviderId = null;
       await loadSelectedDomainSetup();
       renderDomains();
-      setPageMessage("Guia de DNS carregado para o domínio selecionado.", "info");
+      setPageMessage("Domínio selecionado.", "info");
       return;
     }
 
@@ -1357,11 +1393,21 @@
     });
 
     $("verifyDnsBtn")?.addEventListener("click", handleVerifyDns);
+    $("openGuideModalBtn")?.addEventListener("click", openGuideModal);
+
+    $("openCreateDomainModalBtn")?.addEventListener("click", openDomainModal);
+    $("openCreateDomainModalBtnInline")?.addEventListener("click", openDomainModal);
+    $("closeDomainModalBtn")?.addEventListener("click", closeDomainModal);
+    $("cancelDomainModalBtn")?.addEventListener("click", closeDomainModal);
+    $("domainModalOverlay")?.addEventListener("click", closeDomainModal);
+
+    $("closeGuideModalBtn")?.addEventListener("click", closeGuideModal);
+    $("guideModalOverlay")?.addEventListener("click", closeGuideModal);
 
     $("domainList")?.addEventListener("click", handleListClick);
     $("domainList")?.addEventListener("submit", handleEditSubmit);
 
-    $("selectedDomainPanel")?.addEventListener("click", async (event) => {
+    $("guideModalContent")?.addEventListener("click", async (event) => {
       const copyButton = event.target.closest("[data-copy]");
       if (copyButton) {
         await copyText(copyButton.getAttribute("data-copy"));
@@ -1372,7 +1418,7 @@
       if (providerButton) {
         const providerId = providerButton.getAttribute("data-provider-id");
         state.selectedProviderId = state.selectedProviderId === providerId ? null : providerId;
-        renderSelectedDomainPanel();
+        renderGuideModalContent();
       }
     });
 
@@ -1388,6 +1434,8 @@
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         closeHelp();
+        closeDomainModal();
+        closeGuideModal();
       }
     });
   }

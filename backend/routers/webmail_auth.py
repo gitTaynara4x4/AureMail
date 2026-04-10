@@ -6,7 +6,7 @@ import hmac
 import json
 import os
 import time
-from typing import Optional, TypedDict
+from typing import Any, Optional, TypedDict
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, EmailStr, Field
@@ -20,13 +20,52 @@ from backend.routers.auth import (
     verify_password,
 )
 
-SECRET_KEY = os.getenv("AUREMAIL_SECRET_KEY", "troque-essa-chave-em-producao")
-COOKIE_SECURE = os.getenv("AUREMAIL_COOKIE_SECURE", "false").lower() == "true"
-COOKIE_SAMESITE = os.getenv("AUREMAIL_COOKIE_SAMESITE", "lax")
-WEBMAIL_COOKIE_NAME = os.getenv("AUREMAIL_WEBMAIL_COOKIE_NAME", "auremail_webmail_session")
-WEBMAIL_COOKIE_MAX_AGE = int(
-    os.getenv("AUREMAIL_WEBMAIL_COOKIE_MAX_AGE", str(60 * 60 * 24 * 7))
-)
+
+def _get_required_env(name: str) -> str:
+    value = (os.getenv(name, "") or "").strip()
+    if not value:
+        raise RuntimeError(f"{name} não configurada no .env.")
+    return value
+
+
+def _get_cookie_max_age() -> int:
+    raw = (os.getenv("AUREMAIL_WEBMAIL_COOKIE_MAX_AGE", "") or "").strip()
+    if not raw:
+        return 60 * 60 * 24 * 7
+
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise RuntimeError("AUREMAIL_WEBMAIL_COOKIE_MAX_AGE inválido no .env.") from exc
+
+    if value <= 0:
+        raise RuntimeError("AUREMAIL_WEBMAIL_COOKIE_MAX_AGE deve ser maior que zero.")
+
+    return value
+
+
+def _get_cookie_samesite() -> str:
+    value = (os.getenv("AUREMAIL_COOKIE_SAMESITE", "lax") or "lax").strip().lower()
+    allowed = {"lax", "strict", "none"}
+
+    if value not in allowed:
+        raise RuntimeError(
+            "AUREMAIL_COOKIE_SAMESITE inválido no .env. Use: lax, strict ou none."
+        )
+
+    return value
+
+
+SECRET_KEY = _get_required_env("AUREMAIL_SECRET_KEY")
+COOKIE_SECURE = (os.getenv("AUREMAIL_COOKIE_SECURE", "false") or "false").strip().lower() == "true"
+COOKIE_SAMESITE = _get_cookie_samesite()
+WEBMAIL_COOKIE_NAME = (
+    os.getenv("AUREMAIL_WEBMAIL_COOKIE_NAME", "auremail_webmail_session")
+    or "auremail_webmail_session"
+).strip()
+WEBMAIL_COOKIE_MAX_AGE = _get_cookie_max_age()
+
+SHORT_WEBMAIL_SESSION_MAX_AGE = 60 * 60 * 12
 
 router = APIRouter(prefix="/api/webmail-auth", tags=["Webmail Auth"])
 
@@ -53,11 +92,11 @@ def _b64url_decode(data: str) -> bytes:
     return base64.urlsafe_b64decode(data + padding)
 
 
-def serialize_mailbox(mailbox: CaixaEmail) -> dict:
+def serialize_mailbox(mailbox: CaixaEmail) -> dict[str, Any]:
     return {
-        "id": mailbox.id,
-        "empresa_id": mailbox.empresa_id,
-        "dominio_id": mailbox.dominio_id,
+        "id": int(mailbox.id),
+        "empresa_id": int(mailbox.empresa_id),
+        "dominio_id": int(mailbox.dominio_id),
         "email": mailbox.email,
         "display_name": mailbox.display_name,
         "local_part": mailbox.local_part,
@@ -72,11 +111,12 @@ def build_webmail_session_token(mailbox: CaixaEmail, max_age: int) -> str:
     now = int(time.time())
 
     payload = {
-        "mailbox_id": mailbox.id,
-        "empresa_id": mailbox.empresa_id,
-        "email": mailbox.email,
+        "mailbox_id": int(mailbox.id),
+        "empresa_id": int(mailbox.empresa_id),
+        "email": normalize_email(mailbox.email),
         "iat": now,
         "exp": now + int(max_age),
+        "type": "webmail_session",
     }
 
     payload_bytes = json.dumps(
@@ -97,8 +137,11 @@ def build_webmail_session_token(mailbox: CaixaEmail, max_age: int) -> str:
     return f"{payload_b64}.{signature_b64}"
 
 
-def decode_webmail_session_token(token: str) -> Optional[dict]:
+def decode_webmail_session_token(token: str) -> Optional[dict[str, Any]]:
     try:
+        if not token or "." not in token:
+            return None
+
         payload_b64, signature_b64 = token.split(".", 1)
 
         expected_signature = hmac.new(
@@ -112,10 +155,14 @@ def decode_webmail_session_token(token: str) -> Optional[dict]:
         if not hmac.compare_digest(expected_signature, provided_signature):
             return None
 
-        payload = json.loads(_b64url_decode(payload_b64).decode("utf-8"))
+        payload_raw = _b64url_decode(payload_b64).decode("utf-8")
+        payload = json.loads(payload_raw)
 
         exp = payload.get("exp")
-        if exp is not None and int(exp) < int(time.time()):
+        if exp is None or int(exp) < int(time.time()):
+            return None
+
+        if payload.get("type") != "webmail_session":
             return None
 
         return payload
@@ -128,7 +175,7 @@ def set_webmail_login_cookie(
     mailbox: CaixaEmail,
     remember: bool = False,
 ) -> None:
-    max_age = WEBMAIL_COOKIE_MAX_AGE if remember else 60 * 60 * 12
+    max_age = WEBMAIL_COOKIE_MAX_AGE if remember else SHORT_WEBMAIL_SESSION_MAX_AGE
     token = build_webmail_session_token(mailbox, max_age=max_age)
 
     response.set_cookie(
@@ -149,7 +196,7 @@ def clear_webmail_login_cookie(response: Response) -> None:
     )
 
 
-def get_webmail_session_payload(request: Request) -> Optional[dict]:
+def get_webmail_session_payload(request: Request) -> Optional[dict[str, Any]]:
     token = request.cookies.get(WEBMAIL_COOKIE_NAME)
     if not token:
         return None
@@ -162,11 +209,7 @@ def is_webmail_authenticated(request: Request) -> bool:
 
 
 def get_company(db: Session, empresa_id: int) -> Empresa | None:
-    return (
-        db.query(Empresa)
-        .filter(Empresa.id == empresa_id)
-        .first()
-    )
+    return db.query(Empresa).filter(Empresa.id == empresa_id).first()
 
 
 def get_primary_domain(db: Session, empresa_id: int) -> str | None:
@@ -194,6 +237,7 @@ def get_current_webmail_mailbox(
     db: Session = Depends(get_db),
 ) -> CaixaEmail:
     payload = get_webmail_session_payload(request)
+
     if not payload:
         raise HTTPException(status_code=401, detail="Sessão do webmail inválida ou ausente.")
 
@@ -217,8 +261,11 @@ def get_current_webmail_mailbox(
     if not mailbox:
         raise HTTPException(status_code=401, detail="Caixa não encontrada ou inativa.")
 
-    empresa = get_company(db, mailbox.empresa_id)
-    if not empresa or (empresa.status or "").lower() != "active":
+    empresa = get_company(db, int(mailbox.empresa_id))
+    if not empresa:
+        raise HTTPException(status_code=401, detail="Empresa vinculada não encontrada.")
+
+    if (empresa.status or "").strip().lower() != "active":
         raise HTTPException(status_code=403, detail="A empresa vinculada está inativa.")
 
     return mailbox
@@ -240,21 +287,21 @@ def get_current_mail_actor(
 ) -> WebmailActor:
     platform_user = get_current_user_optional(request, db)
     if platform_user:
-        return WebmailActor(
-            kind="platform_user",
-            empresa_id=int(platform_user.empresa_id),
-            platform_user=platform_user,
-            mailbox=None,
-        )
+        return {
+            "kind": "platform_user",
+            "empresa_id": int(platform_user.empresa_id),
+            "platform_user": platform_user,
+            "mailbox": None,
+        }
 
     mailbox = get_current_webmail_mailbox_optional(request, db)
     if mailbox:
-        return WebmailActor(
-            kind="mailbox_user",
-            empresa_id=int(mailbox.empresa_id),
-            platform_user=None,
-            mailbox=mailbox,
-        )
+        return {
+            "kind": "mailbox_user",
+            "empresa_id": int(mailbox.empresa_id),
+            "platform_user": None,
+            "mailbox": mailbox,
+        }
 
     raise HTTPException(status_code=401, detail="Acesso ao webmail não autorizado.")
 
@@ -278,14 +325,14 @@ def login_webmail(
     if not mailbox:
         raise HTTPException(status_code=401, detail="E-mail da caixa ou senha inválidos.")
 
-    if not mailbox.is_active:
+    if not bool(mailbox.is_active):
         raise HTTPException(status_code=403, detail="Essa caixa de e-mail está inativa.")
 
-    empresa = get_company(db, mailbox.empresa_id)
+    empresa = get_company(db, int(mailbox.empresa_id))
     if not empresa:
         raise HTTPException(status_code=401, detail="Empresa vinculada não encontrada.")
 
-    if (empresa.status or "").lower() != "active":
+    if (empresa.status or "").strip().lower() != "active":
         raise HTTPException(status_code=403, detail="A empresa está inativa.")
 
     if not verify_password(password, mailbox.password_hash):
@@ -298,7 +345,7 @@ def login_webmail(
         "message": "Login do webmail realizado com sucesso.",
         "mailbox": serialize_mailbox(mailbox),
         "company": {
-            "id": empresa.id,
+            "id": int(empresa.id),
             "name": empresa.name,
             "status": empresa.status,
         },
@@ -319,14 +366,14 @@ def webmail_me(
     mailbox: CaixaEmail = Depends(get_current_webmail_mailbox),
     db: Session = Depends(get_db),
 ):
-    empresa = get_company(db, mailbox.empresa_id)
-    domain = mailbox.dominio.name if mailbox.dominio else get_primary_domain(db, mailbox.empresa_id)
+    empresa = get_company(db, int(mailbox.empresa_id))
+    domain = mailbox.dominio.name if mailbox.dominio else get_primary_domain(db, int(mailbox.empresa_id))
 
     return {
         "success": True,
         "user": {
-            "id": mailbox.id,
-            "empresa_id": mailbox.empresa_id,
+            "id": int(mailbox.id),
+            "empresa_id": int(mailbox.empresa_id),
             "name": mailbox.display_name or mailbox.local_part,
             "email": mailbox.email,
             "is_owner": False,
@@ -334,14 +381,14 @@ def webmail_me(
             "account_type": "mailbox_user",
         },
         "company": {
-            "id": empresa.id if empresa else None,
+            "id": int(empresa.id) if empresa else None,
             "name": empresa.name if empresa else None,
             "status": empresa.status if empresa else None,
         },
         "mailbox": {
-            "id": mailbox.id,
-            "empresa_id": mailbox.empresa_id,
-            "dominio_id": mailbox.dominio_id,
+            "id": int(mailbox.id),
+            "empresa_id": int(mailbox.empresa_id),
+            "dominio_id": int(mailbox.dominio_id),
             "email": mailbox.email,
             "display_name": mailbox.display_name,
             "local_part": mailbox.local_part,

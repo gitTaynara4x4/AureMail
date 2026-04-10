@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AureMail | Painel</title>
-  <meta name="description" content="Painel interno inicial do AureMail." />
+  <title>AureMail | Dashboard</title>
+  <meta name="description" content="Painel de controle do AureMail" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
 
   <script>
     (() => {
@@ -19,158 +20,1176 @@
     })();
   </script>
 
-  <link rel="stylesheet" href="/assets/css/global.css" />
-  <link rel="stylesheet" href="/assets/css/app.css" />
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-soft: #fafafa;
+      --border: #e7eaee;
+
+      --text: #101828;
+      --text-soft: #475467;
+      --text-muted: #667085;
+
+      --gold: #c9971a;
+      --gold-soft: #f8f1de;
+
+      --success: #16a34a;
+      --success-soft: #edf9f1;
+
+      --danger: #dc2626;
+      --danger-soft: #fef2f2;
+
+      --warning: #d97706;
+      --warning-soft: #fff7ed;
+
+      --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
+      --shadow-md: 0 8px 24px rgba(16, 24, 40, 0.05);
+
+      --radius-sm: 10px;
+      --radius-md: 14px;
+      --radius-lg: 18px;
+
+      --transition: 160ms ease;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0f1115;
+      --surface: #151922;
+      --surface-soft: #181d27;
+      --border: #262c38;
+
+      --text: #eef2f7;
+      --text-soft: #c8d0db;
+      --text-muted: #98a2b3;
+
+      --gold: #d7a62d;
+      --gold-soft: rgba(215, 166, 45, 0.12);
+
+      --success: #4ade80;
+      --success-soft: rgba(74, 222, 128, 0.12);
+
+      --danger: #f87171;
+      --danger-soft: rgba(248, 113, 113, 0.12);
+
+      --warning: #fb923c;
+      --warning-soft: rgba(251, 146, 60, 0.12);
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
+      --shadow-md: 0 12px 30px rgba(0, 0, 0, 0.22);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      min-height: 100%;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .main-content {
+      flex: 1;
+      min-width: 0;
+      padding: 28px;
+    }
+
+    .container {
+      max-width: 1360px;
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .topbar-left {
+      min-width: 0;
+    }
+
+    .status-inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-soft);
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .status-inline-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--success);
+      box-shadow: 0 0 0 4px var(--success-soft);
+      flex-shrink: 0;
+    }
+
+    .page-title {
+      font-size: 30px;
+      line-height: 1.08;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .page-subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 400;
+      max-width: 720px;
+      line-height: 1.65;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      height: 42px;
+      padding: 0 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition), background var(--transition), opacity var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-primary {
+      background: var(--text);
+      color: #ffffff;
+      border-color: var(--text);
+      box-shadow: none;
+    }
+
+    .btn-primary:hover {
+      box-shadow: none;
+      opacity: 0.95;
+    }
+
+    .btn-secondary {
+      color: var(--text-soft);
+    }
+
+    .hero {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 18px;
+    }
+
+    .hero-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .hero-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--gold);
+      background: var(--gold-soft);
+      border-radius: 999px;
+      height: 28px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .hero-title {
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .hero-text {
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.65;
+      max-width: 760px;
+    }
+
+    .hero-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 18px 0;
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .mini-card {
+      background: var(--surface-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .mini-card-label {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .mini-card-value {
+      font-size: 18px;
+      line-height: 1.3;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .mini-card-meta {
+      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+
+    .card-head {
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--gold-soft);
+      color: var(--gold);
+      flex-shrink: 0;
+    }
+
+    .card-head h3 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .card-head p {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+
+    .detail-list {
+      padding: 4px 0;
+    }
+
+    .detail-row {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 12px;
+      align-items: center;
+      padding: 15px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .detail-label {
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 400;
+    }
+
+    .detail-value {
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      text-align: right;
+      word-break: break-word;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid transparent;
+    }
+
+    .status-chip i {
+      font-size: 8px;
+    }
+
+    .status-chip.success {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .status-chip.warning {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+
+    .status-chip.danger {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 0.95fr;
+      gap: 18px;
+    }
+
+    .actions-card,
+    .steps-card {
+      padding: 18px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .section-text {
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .action-item {
+      background: var(--surface-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: transform var(--transition), border-color var(--transition), background var(--transition);
+      text-align: left;
+    }
+
+    .action-item:hover {
+      transform: translateY(-2px);
+      border-color: #d8dde5;
+    }
+
+    .action-item-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--gold-soft);
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+
+    .action-item h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    .action-item p {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-muted);
+      line-height: 1.55;
+      margin-bottom: 12px;
+    }
+
+    .action-item span {
+      color: var(--gold);
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 12px;
+      align-items: flex-start;
+      background: var(--surface-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .step-number {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--text);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .step h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .step p {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    .toast-container {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 3000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      width: min(360px, calc(100vw - 32px));
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow-md);
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 18px 1fr 16px;
+      gap: 12px;
+      animation: toastIn 0.18s ease;
+    }
+
+    .toast i:first-child {
+      color: var(--gold);
+      margin-top: 2px;
+    }
+
+    .toast.success i:first-child {
+      color: var(--success);
+    }
+
+    .toast.error i:first-child {
+      color: var(--danger);
+    }
+
+    .toast-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .toast-message {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .toast-close {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0;
+      font-size: 13px;
+    }
+
+    .loading-spinner {
+      width: 15px;
+      height: 15px;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #ffffff;
+      border-radius: 999px;
+      display: inline-block;
+      animation: spin .7s linear infinite;
+    }
+
+    .loading-spinner.dark {
+      border-color: rgba(17,24,39,0.12);
+      border-top-color: var(--gold);
+    }
+
+    .fade-up {
+      animation: fadeUp .22s ease;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes toastIn {
+      from {
+        opacity: 0;
+        transform: translateX(18px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @media (max-width: 1100px) {
+      .grid-2,
+      .bottom-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .main-content {
+        padding: 18px;
+      }
+
+      .topbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .topbar-actions {
+        justify-content: stretch;
+      }
+
+      .topbar-actions .btn {
+        flex: 1;
+      }
+
+      .hero-stats,
+      .action-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .detail-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+
+      .detail-value {
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page-title {
+        font-size: 24px;
+      }
+
+      .hero-title {
+        font-size: 20px;
+      }
+
+      .hero,
+      .actions-card,
+      .steps-card {
+        padding: 16px;
+      }
+
+      .card-head {
+        padding: 16px 16px 12px;
+      }
+
+      .detail-row {
+        padding: 14px 16px;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="app-layout">
+  <div class="app-shell">
     <aside id="sidebarMount" class="am-sidebar-mount"></aside>
 
-    <main class="app-main">
-      <header class="page-head">
-        <div class="page-head__copy">
-          <h1>Visão Geral</h1>
-          <p>Gerencie sua infraestrutura de e-mail, domínios e caixas de entrada.</p>
-        </div>
+    <main class="main-content">
+      <div class="container">
+        <header class="topbar fade-up">
+          <div class="topbar-left">
+            <div class="status-inline">
+              <span class="status-inline-dot"></span>
+              Painel operacional
+            </div>
 
-        <div class="page-head__actions">
-          <button type="button" class="btn btn-secondary" id="refreshBtn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 1 0 2.1-5.9L3 8"/><path d="M3 2v6h6"/></svg>
-            Atualizar
-          </button>
-          <button type="button" class="btn btn-primary" id="openMailBtn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-            Abrir Webmail
-          </button>
-        </div>
-      </header>
+            <h1 class="page-title">Dashboard</h1>
 
-      <div class="divider"></div>
-
-      <section class="hero-section">
-        <div class="hero-content">
-          <div class="status-indicator">
-            <span class="pulse-dot"></span> 
-            <span class="status-text">Todos os sistemas operacionais</span>
+            <p class="page-subtitle">
+              Visão geral da sua infraestrutura de e-mail, com acesso rápido ao webmail,
+              domínio principal e próximos passos da operação.
+            </p>
           </div>
-          <h2>Configure seu ambiente AureMail</h2>
-          <p>
-            Seu painel centraliza o controle da empresa autenticada. A partir daqui, adicione domínios corporativos e crie caixas de e-mail para sua equipe.
+
+          <div class="topbar-actions">
+            <button class="btn btn-primary" id="openMailBtn">
+              <i class="fa-solid fa-envelope"></i>
+              Abrir Webmail
+            </button>
+
+            <button class="btn btn-secondary" id="refreshBtn">
+              <i class="fa-solid fa-rotate-right"></i>
+              Atualizar
+            </button>
+          </div>
+        </header>
+
+        <section class="hero fade-up">
+          <div class="hero-top">
+            <span class="hero-label">
+              <i class="fa-solid fa-sparkles"></i>
+              AureMail
+            </span>
+          </div>
+
+          <h2 class="hero-title">Um painel mais leve, limpo e profissional.</h2>
+
+          <p class="hero-text">
+            Gerencie empresa, domínio principal e acesso ao webmail em uma interface
+            mais discreta, com menos peso visual e mais equilíbrio.
           </p>
-        </div>
-      </section>
 
-      <section class="page-grid">
-        <article class="data-card">
-          <header class="data-card__header">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
-            <h3>Empresa Autenticada</h3>
-          </header>
-          <ul class="data-list">
-            <li>
-              <span class="data-label">Nome</span>
-              <strong class="data-value" id="companyName">Carregando...</strong>
-            </li>
-            <li>
-              <span class="data-label">Documento</span>
-              <strong class="data-value" id="companyDocument">Carregando...</strong>
-            </li>
-            <li>
-              <span class="data-label">Status</span>
-              <strong class="data-value" id="companyStatus">Carregando...</strong>
-            </li>
-          </ul>
-        </article>
+          <div class="hero-divider"></div>
 
-        <article class="data-card">
-          <header class="data-card__header">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <h3>Usuário da Sessão</h3>
-          </header>
-          <ul class="data-list">
-            <li>
-              <span class="data-label">Nome</span>
-              <strong class="data-value" id="userName">Carregando...</strong>
-            </li>
-            <li>
-              <span class="data-label">E-mail</span>
-              <strong class="data-value" id="userEmail">Carregando...</strong>
-            </li>
-            <li>
-              <span class="data-label">Nível de Acesso</span>
-              <strong class="data-value" id="userRole">Carregando...</strong>
-            </li>
-          </ul>
-        </article>
+          <div class="hero-stats">
+            <div class="mini-card">
+              <div class="mini-card-label">Empresa</div>
+              <div class="mini-card-value" id="companyNameHero">Carregando...</div>
+              <div class="mini-card-meta" id="companyStatusHero">Aguardando dados</div>
+            </div>
 
-        <article class="data-card">
-          <header class="data-card__header">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-            <h3>Status da Conta</h3>
-          </header>
-          <ul class="data-list">
-            <li>
-              <span class="data-label">Situação</span>
-              <span class="status-badge active" id="statusChip">Ambiente ativo</span>
-            </li>
-            <li>
-              <span class="data-label">Domínio Principal</span>
-              <strong class="data-value" id="mainDomain">Carregando...</strong>
-            </li>
-            <li>
-              <span class="data-label">Ação Requerida</span>
-              <strong class="data-value" id="nextStep">Cadastrar domínio</strong>
-            </li>
-          </ul>
-        </article>
-      </section>
+            <div class="mini-card">
+              <div class="mini-card-label">Usuário</div>
+              <div class="mini-card-value" id="userNameHero">Carregando...</div>
+              <div class="mini-card-meta" id="userRoleHero">Aguardando dados</div>
+            </div>
 
-      <section class="page-grid page-grid--two mt-6">
-        <article class="data-card">
-          <header class="data-card__header">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-            <h3>Ações Rápidas</h3>
-          </header>
-          <div class="action-grid">
-            <button type="button" class="action-btn" id="goDomainsBtn">
-              <div class="action-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
-              </div>
-              <div class="action-text">
-                <strong>Adicionar Domínio</strong>
-                <span>Vincule um novo domínio à sua conta</span>
-              </div>
-              <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
-            </button>
-            
-            <button type="button" class="action-btn" id="goMailboxesBtn">
-              <div class="action-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-              </div>
-              <div class="action-text">
-                <strong>Criar Caixa de E-mail</strong>
-                <span>Configure um novo endereço de e-mail</span>
-              </div>
-              <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
-            </button>
+            <div class="mini-card">
+              <div class="mini-card-label">Domínio principal</div>
+              <div class="mini-card-value" id="mainDomainHero">Carregando...</div>
+              <div class="mini-card-meta" id="nextStepHero">Aguardando dados</div>
+            </div>
           </div>
-        </article>
+        </section>
 
-        <article class="data-card bg-subtle">
-          <header class="data-card__header">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            <h3>Documentação & Passos</h3>
-          </header>
-          <ol class="step-list">
-            <li><strong>Verificação:</strong> Adicione o domínio e configure os registros DNS na sua hospedagem.</li>
-            <li><strong>Criação:</strong> Gere as caixas de entrada (ex: contato@suaempresa.com.br).</li>
-            <li><strong>Utilização:</strong> Acesse o Webmail com login e senha para gerenciar suas mensagens.</li>
-          </ol>
-        </article>
-      </section>
+        <section class="grid-2 fade-up">
+          <article class="card">
+            <div class="card-head">
+              <span class="card-icon">
+                <i class="fa-solid fa-building"></i>
+              </span>
+              <div>
+                <h3>Empresa</h3>
+                <p>Dados principais da conta empresarial</p>
+              </div>
+            </div>
+
+            <div class="detail-list">
+              <div class="detail-row">
+                <div class="detail-label">Nome</div>
+                <div class="detail-value" id="companyNameDetail">Carregando...</div>
+              </div>
+
+              <div class="detail-row">
+                <div class="detail-label">Documento</div>
+                <div class="detail-value" id="companyDocument">Carregando...</div>
+              </div>
+
+              <div class="detail-row">
+                <div class="detail-label">Status</div>
+                <div class="detail-value">
+                  <span class="status-chip success" id="companyStatusBadge">
+                    <i class="fa-solid fa-circle"></i>
+                    Carregando...
+                  </span>
+                </div>
+              </div>
+
+              <div class="detail-row">
+                <div class="detail-label">Domínio principal</div>
+                <div class="detail-value" id="mainDomainDetail">Carregando...</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <span class="card-icon">
+                <i class="fa-solid fa-user"></i>
+              </span>
+              <div>
+                <h3>Usuário</h3>
+                <p>Conta autenticada na plataforma</p>
+              </div>
+            </div>
+
+            <div class="detail-list">
+              <div class="detail-row">
+                <div class="detail-label">Nome</div>
+                <div class="detail-value" id="userNameDetail">Carregando...</div>
+              </div>
+
+              <div class="detail-row">
+                <div class="detail-label">E-mail</div>
+                <div class="detail-value" id="userEmail">Carregando...</div>
+              </div>
+
+              <div class="detail-row">
+                <div class="detail-label">Nível de acesso</div>
+                <div class="detail-value" id="userRoleDetail">Carregando...</div>
+              </div>
+
+              <div class="detail-row">
+                <div class="detail-label">Ambiente</div>
+                <div class="detail-value">AureMail Platform</div>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="bottom-grid fade-up">
+          <article class="card actions-card">
+            <h3 class="section-title">Ações rápidas</h3>
+            <p class="section-text">
+              Acesse os pontos principais da sua operação sem poluição visual.
+            </p>
+
+            <div class="action-grid">
+              <button class="action-item" id="goDomainsBtn" type="button">
+                <div class="action-item-icon">
+                  <i class="fa-solid fa-globe"></i>
+                </div>
+                <h4>Domínios</h4>
+                <p>Cadastre, revise e valide os domínios da sua conta.</p>
+                <span>
+                  Abrir domínios
+                  <i class="fa-solid fa-arrow-right"></i>
+                </span>
+              </button>
+
+              <button class="action-item" id="goMailboxesBtn" type="button">
+                <div class="action-item-icon">
+                  <i class="fa-solid fa-envelope-open-text"></i>
+                </div>
+                <h4>Caixas de e-mail</h4>
+                <p>Crie contas profissionais para sua equipe.</p>
+                <span>
+                  Abrir caixas
+                  <i class="fa-solid fa-arrow-right"></i>
+                </span>
+              </button>
+            </div>
+          </article>
+
+          <article class="card steps-card">
+            <h3 class="section-title">Próximos passos</h3>
+            <p class="section-text">
+              Fluxo simples para concluir ou continuar sua configuração.
+            </p>
+
+            <div class="steps-list">
+              <div class="step">
+                <div class="step-number">1</div>
+                <div>
+                  <h4>Verifique o domínio</h4>
+                  <p>Confirme se o domínio principal está pronto para operar no ambiente.</p>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="step-number">2</div>
+                <div>
+                  <h4>Crie as caixas</h4>
+                  <p>Adicione contas como comercial, suporte, financeiro ou qualquer outra necessária.</p>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="step-number">3</div>
+                <div>
+                  <h4>Acesse o webmail</h4>
+                  <p>Entre no webmail para testar envio, recebimento e uso real do sistema.</p>
+                </div>
+              </div>
+            </div>
+          </article>
+        </section>
+      </div>
     </main>
   </div>
 
-  <script src="/assets/js/app.js"></script>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    (function () {
+      const els = {
+        sidebarMount: document.getElementById("sidebarMount"),
+        toastContainer: document.getElementById("toastContainer"),
+
+        refreshBtn: document.getElementById("refreshBtn"),
+        openMailBtn: document.getElementById("openMailBtn"),
+        goDomainsBtn: document.getElementById("goDomainsBtn"),
+        goMailboxesBtn: document.getElementById("goMailboxesBtn"),
+
+        companyNameHero: document.getElementById("companyNameHero"),
+        companyStatusHero: document.getElementById("companyStatusHero"),
+        userNameHero: document.getElementById("userNameHero"),
+        userRoleHero: document.getElementById("userRoleHero"),
+        mainDomainHero: document.getElementById("mainDomainHero"),
+        nextStepHero: document.getElementById("nextStepHero"),
+
+        companyNameDetail: document.getElementById("companyNameDetail"),
+        companyDocument: document.getElementById("companyDocument"),
+        companyStatusBadge: document.getElementById("companyStatusBadge"),
+        mainDomainDetail: document.getElementById("mainDomainDetail"),
+
+        userNameDetail: document.getElementById("userNameDetail"),
+        userEmail: document.getElementById("userEmail"),
+        userRoleDetail: document.getElementById("userRoleDetail"),
+      };
+
+      function setText(el, value, fallback = "Não informado") {
+        if (!el) return;
+        el.textContent = value && String(value).trim() ? value : fallback;
+      }
+
+      function normalizeStatus(value) {
+        return String(value || "").trim().toLowerCase();
+      }
+
+      function getStatusConfig(status) {
+        const value = normalizeStatus(status);
+
+        if (value === "active") {
+          return { className: "success", label: "Ativa" };
+        }
+
+        if (value === "pending") {
+          return { className: "warning", label: "Pendente" };
+        }
+
+        if (value === "inactive" || value === "suspended") {
+          return {
+            className: "danger",
+            label: value === "suspended" ? "Suspensa" : "Inativa"
+          };
+        }
+
+        return { className: "warning", label: "Não informado" };
+      }
+
+      function getUserRole(user, mailbox) {
+        if (user?.is_owner || mailbox?.is_admin) {
+          return "Proprietário";
+        }
+        return "Usuário";
+      }
+
+      function getNextStep(mailbox) {
+        if (mailbox?.domain) {
+          return "Criar caixas de e-mail";
+        }
+        return "Cadastrar primeiro domínio";
+      }
+
+      function showToast(message, type = "info", title = "") {
+        const toast = document.createElement("div");
+        toast.className = `toast ${type}`;
+
+        const icons = {
+          info: "fa-circle-info",
+          success: "fa-circle-check",
+          error: "fa-circle-exclamation",
+        };
+
+        const titles = {
+          info: "Atualização",
+          success: "Sucesso",
+          error: "Erro",
+        };
+
+        toast.innerHTML = `
+          <i class="fa-solid ${icons[type] || icons.info}"></i>
+          <div>
+            <div class="toast-title">${title || titles[type]}</div>
+            <div class="toast-message">${message}</div>
+          </div>
+          <button class="toast-close" aria-label="Fechar">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        `;
+
+        toast.querySelector(".toast-close")?.addEventListener("click", () => {
+          toast.remove();
+        });
+
+        els.toastContainer.appendChild(toast);
+        setTimeout(() => toast.remove(), 4500);
+      }
+
+      async function mountSidebar() {
+        if (!els.sidebarMount) return;
+
+        try {
+          const response = await fetch("/assets/partials/sidebar.html", {
+            method: "GET",
+            credentials: "same-origin",
+            headers: { Accept: "text/html" }
+          });
+
+          if (!response.ok) return;
+
+          els.sidebarMount.innerHTML = await response.text();
+
+          els.sidebarMount.querySelectorAll("script").forEach((oldScript) => {
+            const newScript = document.createElement("script");
+            Array.from(oldScript.attributes).forEach((attr) => {
+              newScript.setAttribute(attr.name, attr.value);
+            });
+            newScript.textContent = oldScript.textContent;
+            oldScript.replaceWith(newScript);
+          });
+        } catch (error) {
+          console.error("Erro ao montar sidebar:", error);
+        }
+      }
+
+      function renderStatusBadge(status) {
+        const cfg = getStatusConfig(status);
+
+        els.companyStatusBadge.className = `status-chip ${cfg.className}`;
+        els.companyStatusBadge.innerHTML = `
+          <i class="fa-solid fa-circle"></i>
+          ${cfg.label}
+        `;
+      }
+
+      function render(data) {
+        const company = data?.company || {};
+        const user = data?.user || {};
+        const mailbox = data?.mailbox || {};
+
+        const companyName = company?.name || "Empresa";
+        const companyDocument = company?.cnpj_cpf || "CPF/CNPJ não informado";
+        const userName = user?.name || mailbox?.display_name || "Usuário";
+        const userEmail = user?.email || mailbox?.email || "E-mail não disponível";
+        const userRole = getUserRole(user, mailbox);
+        const domain = mailbox?.domain || "Nenhum domínio";
+        const nextStep = getNextStep(mailbox);
+        const statusCfg = getStatusConfig(company?.status);
+
+        setText(els.companyNameHero, companyName);
+        setText(els.companyStatusHero, `Status: ${statusCfg.label}`);
+        setText(els.userNameHero, userName.split(" ")[0] || userName);
+        setText(els.userRoleHero, userRole);
+        setText(els.mainDomainHero, domain);
+        setText(els.nextStepHero, nextStep);
+
+        setText(els.companyNameDetail, companyName);
+        setText(els.companyDocument, companyDocument);
+        setText(els.mainDomainDetail, domain);
+
+        setText(els.userNameDetail, userName);
+        setText(els.userEmail, userEmail);
+        setText(
+          els.userRoleDetail,
+          userRole === "Proprietário" ? "Proprietário da empresa" : "Usuário da plataforma"
+        );
+
+        renderStatusBadge(company?.status);
+
+        if (window.AureMailSidebar?.apply) {
+          window.AureMailSidebar.apply(data);
+        }
+      }
+
+      async function loadData(showFeedback = false) {
+        const originalHTML = els.refreshBtn?.innerHTML;
+
+        try {
+          if (els.refreshBtn) {
+            els.refreshBtn.disabled = true;
+            els.refreshBtn.innerHTML = `<span class="loading-spinner dark"></span> Atualizando`;
+          }
+
+          const response = await fetch("/api/me", {
+            method: "GET",
+            credentials: "include",
+            headers: { Accept: "application/json" }
+          });
+
+          if (response.status === 401) {
+            window.location.href = "/login";
+            return;
+          }
+
+          if (!response.ok) {
+            throw new Error("Falha ao carregar o dashboard");
+          }
+
+          const data = await response.json();
+          render(data);
+
+          if (showFeedback) {
+            showToast("Dashboard atualizado com sucesso.", "success");
+          }
+        } catch (error) {
+          console.error("Erro ao carregar dashboard:", error);
+          showToast("Não foi possível carregar o dashboard.", "error");
+        } finally {
+          if (els.refreshBtn) {
+            els.refreshBtn.disabled = false;
+            els.refreshBtn.innerHTML = originalHTML || `<i class="fa-solid fa-rotate-right"></i> Atualizar`;
+          }
+        }
+      }
+
+      function bindEvents() {
+        els.refreshBtn?.addEventListener("click", () => loadData(true));
+
+        els.openMailBtn?.addEventListener("click", () => {
+          window.location.href = "/mail";
+        });
+
+        els.goDomainsBtn?.addEventListener("click", () => {
+          window.location.href = "/dominios";
+        });
+
+        els.goMailboxesBtn?.addEventListener("click", () => {
+          window.location.href = "/caixas-email";
+        });
+      }
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        await mountSidebar();
+        bindEvents();
+        await loadData(false);
+      });
+    })();
+  </script>
 </body>
 </html>

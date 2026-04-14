@@ -128,7 +128,6 @@ class CaixaEmail(Base):
     password_hash = Column(String(255), nullable=False)
 
     # Mantido assim por compatibilidade com o restante do projeto.
-    # Depois a gente pode migrar isso para mail_password_enc.
     smtp_password_enc = Column(Text, nullable=True)
 
     quota_mb = Column(Integer, nullable=False, server_default=text("2048"))
@@ -191,6 +190,7 @@ class Mensagem(Base):
         Index("ix_mensagens_empresa_id", "empresa_id"),
         Index("ix_mensagens_created_at", "created_at"),
         Index("ix_mensagens_direction", "direction"),
+        Index("ix_mensagens_category", "category"),
         Index("ix_mensagens_schedule_status", "schedule_status"),
         Index("ix_mensagens_scheduled_for", "scheduled_for"),
     )
@@ -215,7 +215,8 @@ class Mensagem(Base):
 
     sent_at = Column(DateTime(timezone=True), nullable=True)
 
-    # Novos campos para pastas/visões estilo Gmail
+    # Apoio para visões estilo Gmail
+    category = Column(String(20), nullable=True)
     scheduled_for = Column(DateTime(timezone=True), nullable=True)
     schedule_status = Column(String(20), nullable=False, server_default=text("'none'"))
 
@@ -264,11 +265,8 @@ class CaixaMensagem(Base):
 
     is_read = Column(Boolean, nullable=False, server_default=text("false"))
     is_starred = Column(Boolean, nullable=False, server_default=text("false"))
-
-    # Novos campos
     is_important = Column(Boolean, nullable=False, server_default=text("false"))
     snoozed_until = Column(DateTime(timezone=True), nullable=True)
-
     is_deleted = Column(Boolean, nullable=False, server_default=text("false"))
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

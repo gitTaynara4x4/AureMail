@@ -3,14 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AureMail | Caixa de Entrada</title>
+  <title>AureMail | Webmail</title>
   <meta name="description" content="AureMail webmail profissional." />
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.9.10/dist/dotlottie-wc.js" type="module"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <script>
     (() => {
@@ -21,847 +19,44 @@
     })();
   </script>
 
-  <style>
-    :root {
-      --bg-app: #f6f8fc;
-      --bg-surface: #ffffff;
-      --border-light: #e0e4ea;
-      --text-main: #202124;
-      --text-muted: #5f6368;
-      --accent-primary: #0b57d0;
-      --accent-hover: #0842a0;
-      --compose-bg: #c2e7ff;
-      --compose-hover: #b3d4ec;
-      --compose-text: #001d35;
-      --radius-sm: 8px;
-      --radius-md: 16px;
-      --radius-pill: 999px;
-      --shadow-sm: 0 1px 2px 0 rgba(60,64,67,0.3);
-      --shadow-card: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      min-width: 0;
-    }
-
-    html, body {
-      width: 100%;
-      max-width: 100%;
-      overflow: hidden;
-    }
-
-    body {
-      font-family: 'Inter', sans-serif;
-      background: var(--bg-app);
-      color: var(--text-main);
-      height: 100vh;
-      overflow-x: hidden;
-      overflow-y: hidden;
-    }
-
-    a {
-      text-decoration: none;
-      color: inherit;
-    }
-
-    button {
-      cursor: pointer;
-      font-family: inherit;
-      border: none;
-      background: none;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      border-radius: var(--radius-sm);
-      padding: 0 16px;
-      height: 36px;
-      transition: 0.2s;
-      border: 1px solid transparent;
-      white-space: nowrap;
-    }
-
-    .btn-primary {
-      background: var(--accent-primary);
-      color: #fff;
-    }
-
-    .btn-primary:hover {
-      background: var(--accent-hover);
-      box-shadow: var(--shadow-sm);
-    }
-
-    .btn-secondary {
-      background: var(--bg-surface);
-      border-color: var(--border-light);
-      color: var(--text-main);
-    }
-
-    .btn-secondary:hover {
-      background: #f1f3f4;
-    }
-
-    .btn-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: 0.2s;
-      flex-shrink: 0;
-    }
-
-    .btn-icon:hover {
-      background: rgba(95,99,104,0.1);
-      color: var(--text-main);
-    }
-
-    .btn-icon.danger:hover {
-      color: #d93025;
-      background: #fce8e6;
-    }
-
-    .mail-layout {
-      display: flex;
-      height: 100vh;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .mail-topbar {
-      height: 64px;
-      padding: 0 24px;
-      background: var(--bg-surface);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 24px;
-      border-bottom: 1px solid var(--border-light);
-      z-index: 10;
-      flex-shrink: 0;
-    }
-
-    .mail-topbar__left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      width: 260px;
-      flex-shrink: 0;
-    }
-
-    .menu-toggle-btn {
-      display: none;
-    }
-
-    .search-container {
-      flex: 1;
-      max-width: 720px;
-      min-width: 0;
-    }
-
-    .search-box {
-      position: relative;
-      width: 100%;
-    }
-
-    .search-box svg {
-      position: absolute;
-      left: 16px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-muted);
-    }
-
-    .search-box input {
-      width: 100%;
-      height: 48px;
-      padding: 0 16px 0 48px;
-      background: #eaf1fb;
-      border: none;
-      border-radius: 24px;
-      font-size: 15px;
-      color: var(--text-main);
-      transition: 0.2s;
-    }
-
-    .search-box input:focus {
-      background: var(--bg-surface);
-      box-shadow: 0 1px 1px 0 rgba(65,69,73,0.3), 0 1px 3px 1px rgba(65,69,73,0.15);
-      outline: none;
-    }
-
-    .mail-topbar__right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 260px;
-      justify-content: flex-end;
-      flex-shrink: 0;
-    }
-
-    .mail-body {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-      padding-top: 16px;
-      position: relative;
-      min-height: 0;
-    }
-
-    .sidebar-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 98;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .sidebar-overlay.active {
-      display: block;
-      opacity: 1;
-    }
-
-    .mail-sidebar {
-      width: 260px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      padding-right: 16px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      z-index: 2;
-      background: var(--bg-app);
-      flex-shrink: 0;
-    }
-
-    .mail-sidebar::-webkit-scrollbar,
-    .mail-list::-webkit-scrollbar,
-    .mail-view::-webkit-scrollbar {
-      width: 10px;
-    }
-
-    .mail-sidebar::-webkit-scrollbar-thumb,
-    .mail-list::-webkit-scrollbar-thumb,
-    .mail-view::-webkit-scrollbar-thumb {
-      background: rgba(95,99,104,0.22);
-      border-radius: 999px;
-      border: 2px solid transparent;
-      background-clip: content-box;
-    }
-
-    .compose-btn-wrapper {
-      padding: 0 16px;
-    }
-
-    .btn-compose {
-      background: var(--compose-bg);
-      color: var(--compose-text);
-      height: 56px;
-      border-radius: 16px;
-      padding: 0 24px;
-      font-size: 14px;
-      font-weight: 500;
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3);
-      transition: box-shadow 0.2s, background 0.2s;
-    }
-
-    .btn-compose:hover {
-      background: var(--compose-hover);
-      box-shadow: 0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
-    }
-
-    .mail-nav {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .mail-nav__item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px 0 24px;
-      height: 32px;
-      color: var(--text-main);
-      font-size: 14px;
-      border-radius: 0 16px 16px 0;
-      margin-right: 16px;
-      transition: 0.2s;
-    }
-
-    .mail-nav__item:hover {
-      background: rgba(95,99,104,0.05);
-    }
-
-    .mail-nav__item.active {
-      background: #d3e3fd;
-      color: #041e49;
-      font-weight: 600;
-    }
-
-    .nav-label {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .mail-nav__item strong {
-      font-size: 12px;
-    }
-
-    .mail-context-area {
-      padding: 16px;
-      border-top: 1px solid var(--border-light);
-      margin-top: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .context-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .mail-context-select {
-      width: 100%;
-      height: 36px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border-light);
-      background: var(--bg-surface);
-      color: var(--text-main);
-      padding: 0 12px;
-      font-size: 13px;
-      outline: none;
-    }
-
-    .mail-context-select:focus {
-      border-color: var(--accent-primary);
-    }
-
-    .mail-content {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 350px 1fr;
-      gap: 16px;
-      padding-right: 16px;
-      padding-bottom: 16px;
-      overflow: hidden;
-      min-height: 0;
-    }
-
-    .mail-panel {
-      background: var(--bg-surface);
-      border-radius: var(--radius-md);
-      box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-height: 0;
-    }
-
-    .list-panel {
-      border-right: 1px solid var(--border-light);
-    }
-
-    .panel-head {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-light);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text-muted);
-      background: var(--bg-surface);
-      gap: 12px;
-      flex-shrink: 0;
-    }
-
-    .mail-list {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      min-height: 0;
-    }
-
-    .mail-item {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-light);
-      cursor: pointer;
-      transition: 0.15s;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .mail-item:hover {
-      box-shadow: inset 1px 0 0 #dadce0, inset -1px 0 0 #dadce0, 0 1px 2px 0 rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15);
-      z-index: 1;
-      border-color: transparent;
-    }
-
-    .mail-item.active {
-      background: #eaf1fb;
-    }
-
-    .mail-item.unread .mail-item__from {
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .mail-item.unread .mail-item__subject {
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .mail-item.unread::after {
-      content: '';
-      position: absolute;
-      right: 16px;
-      top: 16px;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--accent-primary);
-    }
-
-    .mail-item__top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .mail-item__from {
-      font-size: 14px;
-      color: var(--text-main);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 70%;
-    }
-
-    .mail-item__date {
-      font-size: 12px;
-      color: var(--text-muted);
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .mail-item__subject {
-      font-size: 13px;
-      color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .mail-item__preview {
-      font-size: 13px;
-      color: var(--text-muted);
-      display: -webkit-box;
-      -webkit-line-clamp: 1;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      opacity: 0.8;
-    }
-
-    .view-panel {
-      background: var(--bg-surface);
-    }
-
-    .mail-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      min-width: 0;
-    }
-
-    .mail-view {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding: 32px;
-      min-height: 0;
-    }
-
-    .mail-view__header h2 {
-      font-size: 22px;
-      font-weight: 400;
-      margin-bottom: 24px;
-      color: var(--text-main);
-      word-break: break-word;
-    }
-
-    .mail-view__meta {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin-bottom: 32px;
-      padding-bottom: 24px;
-      border-bottom: 1px solid var(--border-light);
-    }
-
-    .mail-view__sender {
-      font-size: 14px;
-      color: var(--text-main);
-      font-weight: 500;
-      word-break: break-word;
-    }
-
-    .mail-view__sender span {
-      color: var(--text-muted);
-      font-weight: 400;
-      font-size: 12px;
-    }
-
-    .mail-view__to {
-      font-size: 12px;
-      color: var(--text-muted);
-      word-break: break-word;
-    }
-
-    .mail-view__body {
-      font-size: 14px;
-      line-height: 1.6;
-      color: var(--text-main);
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .compose-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(32,33,36,0.6);
-      opacity: 0;
-      visibility: hidden;
-      transition: 0.2s;
-      z-index: 90;
-    }
-
-    .compose-modal {
-      position: fixed;
-      right: 80px;
-      bottom: 0;
-      width: 500px;
-      height: 550px;
-      background: var(--bg-surface);
-      border-radius: 8px 8px 0 0;
-      box-shadow: 0 8px 10px 1px rgba(0,0,0,0.14), 0 3px 14px 2px rgba(0,0,0,0.12);
-      display: flex;
-      flex-direction: column;
-      transform: translateY(100%);
-      opacity: 0;
-      visibility: hidden;
-      transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 100;
-      max-width: calc(100vw - 32px);
-    }
-
-    .compose-modal.active,
-    .compose-overlay.active {
-      opacity: 1;
-      visibility: visible;
-    }
-
-    .compose-modal.active {
-      transform: translateY(0);
-    }
-
-    .compose-modal__head {
-      padding: 12px 16px;
-      background: #f2f2f0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-radius: 8px 8px 0 0;
-      flex-shrink: 0;
-    }
-
-    .compose-modal__head strong {
-      font-size: 14px;
-      font-weight: 500;
-    }
-
-    .compose-form {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 0 16px;
-      min-height: 0;
-    }
-
-    .field {
-      border-bottom: 1px solid var(--border-light);
-      display: flex;
-      align-items: center;
-      padding: 8px 0;
-      gap: 10px;
-    }
-
-    .field label {
-      width: 60px;
-      font-size: 14px;
-      color: var(--text-muted);
-      flex-shrink: 0;
-    }
-
-    .field input {
-      flex: 1;
-      border: none;
-      outline: none;
-      font-size: 14px;
-      padding: 4px;
-      background: transparent;
-      min-width: 0;
-    }
-
-    .compose-field--grow {
-      flex: 1;
-      flex-direction: column;
-      align-items: stretch;
-      border-bottom: none;
-      padding-top: 12px;
-      min-height: 0;
-    }
-
-    .compose-field--grow textarea {
-      flex: 1;
-      resize: none;
-      border: none;
-      outline: none;
-      font-size: 14px;
-      font-family: inherit;
-      min-height: 0;
-    }
-
-    .compose-actions {
-      padding: 12px 16px;
-      border-top: 1px solid var(--border-light);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: var(--bg-surface);
-      flex-shrink: 0;
-    }
-
-    .mail-empty-state {
-      padding: 40px;
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 14px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-    }
-
-    .mail-feedback {
-      position: fixed;
-      bottom: 24px;
-      left: 24px;
-      padding: 12px 18px;
-      border-radius: 12px;
-      background: #323232;
-      color: #fff;
-      font-size: 14px;
-      transform: translateY(16px);
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-      transition: 0.25s ease;
-      z-index: 1000;
-      box-shadow: 0 10px 30px rgba(0,0,0,.18);
-      display: none;
-      max-width: min(360px, calc(100vw - 32px));
-      line-height: 1.4;
-    }
-
-    .mail-feedback.show {
-      display: flex;
-      align-items: center;
-      transform: translateY(0);
-      opacity: 1;
-      visibility: visible;
-      pointer-events: auto;
-    }
-
-    .mail-feedback.error {
-      background: #d93025;
-    }
-
-    .mail-feedback.success {
-      background: #1f6f43;
-    }
-
-    @media (max-width: 900px) {
-      .mail-topbar {
-        flex-wrap: wrap;
-        height: auto;
-        padding: 12px 16px;
-        gap: 12px;
-      }
-
-      .mail-topbar__left {
-        width: auto;
-        flex: 1;
-        justify-content: flex-start;
-      }
-
-      .mail-topbar__right {
-        width: auto;
-        flex: 1;
-        justify-content: flex-end;
-      }
-
-      .search-container {
-        order: 3;
-        width: 100%;
-        max-width: 100%;
-      }
-
-      .search-box input {
-        height: 44px;
-      }
-
-      .menu-toggle-btn {
-        display: flex;
-      }
-
-      .mail-sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        width: min(280px, 84vw);
-        max-width: 84vw;
-        background: var(--bg-surface);
-        z-index: 100;
-        padding-top: 24px;
-        padding-right: 0;
-        box-shadow: 4px 0 16px rgba(0,0,0,0.1);
-        transform: translateX(-100%);
-        transition: transform 0.3s ease;
-      }
-
-      .mail-sidebar.open {
-        transform: translateX(0);
-      }
-
-      .mail-content {
-        grid-template-columns: 1fr;
-        padding: 12px;
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-      }
-
-      .list-panel {
-        flex: none;
-        height: 350px;
-        border-right: none;
-      }
-
-      .view-panel {
-        flex: 1;
-        min-height: 500px;
-      }
-
-      .panel-head {
-        flex-wrap: wrap;
-      }
-
-      .mail-view {
-        padding: 20px 16px 24px;
-      }
-
-      .mail-empty-state {
-        padding: 24px 16px;
-      }
-
-      .mail-empty-state dotlottie-wc {
-        width: 260px !important;
-        height: 260px !important;
-      }
-
-      .compose-modal {
-        right: 0;
-        width: 100%;
-        max-width: 100%;
-        height: 100%;
-        border-radius: 0;
-      }
-
-      .compose-modal__head {
-        border-radius: 0;
-      }
-
-      .mail-feedback {
-        left: 12px;
-        right: 12px;
-        bottom: 12px;
-        max-width: none;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="/assets/css/mail.css" />
 </head>
 <body>
-
   <div class="mail-layout">
-
     <header class="mail-topbar">
       <div class="mail-topbar__left">
-        <button class="btn-icon menu-toggle-btn" id="menuToggleBtn">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="btn-icon menu-toggle-btn" id="menuToggleBtn" type="button" aria-label="Abrir menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="3" y1="12" x2="21" y2="12"></line>
             <line x1="3" y1="6" x2="21" y2="6"></line>
             <line x1="3" y1="18" x2="21" y2="18"></line>
           </svg>
         </button>
 
-        <img src="./assets/img/logo.png" alt="AureMail Logo" style="height: 32px; width: auto; object-fit: contain;" />
+        <img src="/assets/img/logo.png" alt="AureMail Logo" class="mail-logo" />
       </div>
 
       <div class="search-container">
         <div class="search-box">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"></circle>
             <path d="m21 21-4.3-4.3"></path>
           </svg>
-          <input type="text" id="mailSearch" placeholder="Pesquisar no e-mail" />
+          <input type="text" id="mailSearch" placeholder="Pesquisar no e-mail" autocomplete="off" />
         </div>
       </div>
 
       <div class="mail-topbar__right">
-        <button class="btn-icon" type="button" id="refreshBtn" title="Atualizar">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="btn-icon" type="button" id="refreshBtn" title="Atualizar" aria-label="Atualizar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 2v6h-6"></path>
             <path d="M3 12a9 9 0 1 0 2.1-5.9L3 8"></path>
             <path d="M3 2v6h6"></path>
           </svg>
         </button>
-        <button class="btn-icon danger" type="button" id="logoutBtn" title="Sair">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+        <button class="btn-icon danger" type="button" id="logoutBtn" title="Sair" aria-label="Sair">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
             <polyline points="16 17 21 12 16 7"></polyline>
             <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -871,123 +66,196 @@
     </header>
 
     <div class="mail-body">
-
       <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-      <aside class="mail-sidebar">
+      <aside class="mail-sidebar" id="mailSidebar">
         <div class="compose-btn-wrapper">
           <button class="btn-compose" type="button" id="openComposeBtn">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 5v14M5 12h14"></path>
             </svg>
             Escrever
           </button>
         </div>
 
-        <nav class="mail-nav">
-          <a href="#" class="mail-nav__item active" data-folder="inbox">
-            <div class="nav-label">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
-                <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
-              </svg>
-              Entrada
-            </div>
-            <strong>0</strong>
-          </a>
+        <nav class="mail-nav" id="mailNav" aria-label="Pastas do e-mail"></nav>
 
-          <a href="#" class="mail-nav__item" data-folder="sent">
-            <div class="nav-label">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-              </svg>
-              Enviados
-            </div>
-            <strong>0</strong>
-          </a>
-
-          <a href="#" class="mail-nav__item" data-folder="drafts">
-            <div class="nav-label">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
-              Rascunhos
-            </div>
-            <strong>0</strong>
-          </a>
-
-          <a href="#" class="mail-nav__item" data-folder="trash">
-            <div class="nav-label">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-              Lixeira
-            </div>
-            <strong>0</strong>
-          </a>
-        </nav>
+        <div class="mail-nav-section">
+          <div class="mail-nav-section__title">Marcadores</div>
+          <div id="mailLabelsList" class="mail-labels-list">
+            <div class="mail-label-empty">Nenhum marcador personalizado</div>
+          </div>
+        </div>
 
         <div class="mail-context-area mail-context-row">
           <span class="context-label" id="currentContextInfo">Contexto</span>
+
           <select id="domainSelect" class="mail-context-select">
             <option value="">Domínios...</option>
           </select>
+
           <select id="mailboxSelect" class="mail-context-select">
             <option value="">Caixas...</option>
           </select>
         </div>
       </aside>
 
-      <section class="mail-content">
+      <section class="mail-content list-mode" id="mailContent">
         <div class="mail-panel list-panel">
-          <div class="panel-head">
+          <div class="panel-head panel-head--list gmail-list-head">
+            <div class="panel-head__left gmail-list-head__left">
+              <div class="gmail-toolbar-group">
+                <label class="selection-master selection-master--dropdown" for="selectAllCheckbox" title="Selecionar">
+                  <input type="checkbox" id="selectAllCheckbox" />
+                  <span class="selection-master__arrow">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M7 10l5 5 5-5z"></path>
+                    </svg>
+                  </span>
+                </label>
+
+                <button class="btn-icon btn-icon--sm" type="button" id="refreshListBtn" title="Atualizar lista" aria-label="Atualizar lista">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 2v6h-6"></path>
+                    <path d="M3 12a9 9 0 1 0 2.1-5.9L3 8"></path>
+                    <path d="M3 2v6h6"></path>
+                  </svg>
+                </button>
+
+                <button class="btn-icon btn-icon--sm" type="button" id="listMoreBtn" title="Mais" aria-label="Mais">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="5" r="1.7"></circle>
+                    <circle cx="12" cy="12" r="1.7"></circle>
+                    <circle cx="12" cy="19" r="1.7"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="panel-head__right gmail-list-head__right">
+              <span class="selected-count" id="selectedCountLabel">0 selecionados</span>
+
+              <button class="btn btn-secondary btn-xs" type="button" id="clearSelectionBtn" style="display:none;">
+                Limpar
+              </button>
+
+              <div class="gmail-pager">
+                <span class="gmail-pager__status" id="mailPageStatus">0 de 0</span>
+
+                <button class="btn-icon btn-icon--sm" type="button" id="prevPageBtn" aria-label="Anterior" title="Anterior">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                  </svg>
+                </button>
+
+                <button class="btn-icon btn-icon--sm" type="button" id="nextPageBtn" aria-label="Próximo" title="Próximo">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                </button>
+
+                <button class="btn-icon btn-icon--sm" type="button" id="densityBtn" aria-label="Visualização" title="Visualização">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="4" y="6" width="16" height="2" rx="1"></rect>
+                    <rect x="4" y="11" width="16" height="2" rx="1"></rect>
+                    <rect x="4" y="16" width="16" height="2" rx="1"></rect>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mail-category-tabs" id="mailCategoryTabs"></div>
+
+          <div class="mail-list-toolbar">
             <span id="mailResultsCount">0 conversas</span>
           </div>
+
           <div class="mail-list" id="mailList">
-            <div class="mail-empty-state">Carregando mensagens...</div>
+            <div class="mail-empty-state">
+              <span>Carregando mensagens...</span>
+            </div>
           </div>
         </div>
 
         <div class="mail-panel view-panel">
-          <div class="panel-head">
+          <div class="panel-head panel-head--view">
             <div class="mail-actions">
-              <button class="btn-icon" type="button" id="archiveBtn" title="Excluir">
+              <button class="btn-icon" type="button" id="detailBackBtn" title="Voltar" aria-label="Voltar" style="display:none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="19" y1="12" x2="5" y2="12"></line>
+                  <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+              </button>
+
+              <button class="btn-icon" type="button" id="spamBtn" title="Spam" aria-label="Spam">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <line x1="8" y1="8" x2="16" y2="16"></line>
+                </svg>
+              </button>
+
+              <button class="btn-icon" type="button" id="restoreInboxBtn" title="Mover para entrada" aria-label="Mover para entrada" style="display:none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+                  <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+                </svg>
+              </button>
+
+              <button class="btn-icon" type="button" id="archiveBtn" title="Mover para lixeira" aria-label="Mover para lixeira">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"></polyline>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                 </svg>
               </button>
+
+              <span class="toolbar-divider"></span>
+
+              <button class="btn-icon" type="button" id="starToggleBtn" title="Com estrela" aria-label="Com estrela">
+                <span class="btn-star">★</span>
+              </button>
+
+              <button class="btn-icon" type="button" id="importantToggleBtn" title="Importante" aria-label="Importante">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 3l2.7 5.47 6.03.88-4.36 4.25 1.03 6.01L12 16.77l-5.4 2.84 1.03-6.01L3.27 9.35l6.03-.88L12 3z"></path>
+                </svg>
+              </button>
+
+              <button class="btn-icon" type="button" id="snoozeBtn" title="Adiar" aria-label="Adiar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <polyline points="12 7 12 12 15 15"></polyline>
+                </svg>
+              </button>
+
+              <button class="btn-icon" type="button" id="unsnoozeBtn" title="Remover adiamento" aria-label="Remover adiamento" style="display:none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12a9 9 0 1 0 2.1-5.9L3 8"></path>
+                  <path d="M3 3v5h5"></path>
+                </svg>
+              </button>
             </div>
 
             <div class="mail-actions">
-              <button class="btn btn-secondary" type="button" id="replyBtn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <button class="btn-icon" type="button" id="replyBtn" title="Responder" aria-label="Responder">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="9 17 4 12 9 7"></polyline>
                   <path d="M20 18v-2a4 4 0 0 0-4-4H4"></path>
                 </svg>
-                Responder
               </button>
 
-              <button class="btn btn-secondary" type="button" id="forwardBtn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <button class="btn-icon" type="button" id="forwardBtn" title="Encaminhar" aria-label="Encaminhar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="15 17 20 12 15 7"></polyline>
                   <path d="M4 18v-2a4 4 0 0 1 4-4h12"></path>
                 </svg>
-                Encaminhar
               </button>
             </div>
           </div>
 
           <article class="mail-view" id="mailView">
-            <div class="mail-empty-state" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 20px;">
-              <dotlottie-wc src="https://lottie.host/b49626bb-40aa-4976-82a9-c395af7a7fa0/tyaUHe0ish.lottie" style="width: 400px; height: 400px; max-width: 100%;" autoplay loop></dotlottie-wc>
-              <span style="font-size: 16px; font-weight: 500; color: var(--text-muted); margin-top: -20px;">Nenhuma conversa selecionada</span>
+            <div class="mail-empty-state mail-empty-state--plain">
+              <span>Selecione uma conversa</span>
             </div>
           </article>
         </div>
@@ -995,14 +263,21 @@
     </div>
   </div>
 
-  <div id="mailFeedback" class="mail-feedback"></div>
+  <div id="loadingOverlay" class="mail-loading-overlay" aria-hidden="true">
+    <div class="mail-loading-box">
+      <div class="mail-loading-spinner"></div>
+      <div class="mail-loading-text" id="loadingText">Carregando...</div>
+    </div>
+  </div>
 
+  <div id="mailFeedback" class="mail-feedback"></div>
   <div class="compose-overlay" id="composeOverlay"></div>
 
   <section class="compose-modal" id="composeModal" aria-hidden="true">
     <div class="compose-modal__head">
       <strong>Nova Mensagem</strong>
-      <button type="button" class="btn-icon" id="closeComposeBtn" style="width:28px;height:28px;">
+
+      <button type="button" class="btn-icon btn-icon--sm" id="closeComposeBtn" aria-label="Fechar">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -1011,7 +286,7 @@
     </div>
 
     <form class="compose-form" id="composeForm">
-      <div class="field" style="display:none;">
+      <div class="field field-hidden">
         <input type="text" id="from" value="" readonly />
       </div>
 
@@ -1025,13 +300,31 @@
         <input type="text" id="subject" />
       </div>
 
+      <div class="compose-tools">
+        <button type="button" class="btn btn-secondary btn-xs" id="toggleSchedulePanelBtn">
+          Programar envio
+        </button>
+
+        <div class="compose-schedule-panel" id="composeSchedulePanel" style="display:none;">
+          <label for="scheduledFor">Enviar em</label>
+          <input type="datetime-local" id="scheduledFor" />
+          <button type="button" class="btn btn-secondary btn-xs" id="clearScheduledForBtn">
+            Limpar
+          </button>
+        </div>
+      </div>
+
       <div class="field compose-field--grow">
-        <textarea id="message"></textarea>
+        <textarea id="message" placeholder="Escreva sua mensagem..."></textarea>
       </div>
 
       <div class="compose-actions">
-        <button type="submit" class="btn btn-primary">Enviar</button>
-        <button type="button" class="btn-icon" id="draftBtn" title="Salvar rascunho">
+        <div class="compose-actions__left">
+          <button type="submit" class="btn btn-primary">Enviar</button>
+          <button type="button" class="btn btn-secondary" id="scheduleSendBtn">Programar</button>
+        </div>
+
+        <button type="button" class="btn-icon" id="draftBtn" title="Salvar rascunho" aria-label="Salvar rascunho">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
             <polyline points="17 21 17 13 7 13 7 21"></polyline>
@@ -1042,834 +335,6 @@
     </form>
   </section>
 
-  <script>
-    (function () {
-      const state = {
-        me: null,
-        authMode: null,
-        context: null,
-        company: null,
-        user: null,
-        domains: [],
-        mailboxes: [],
-        currentDomainId: null,
-        currentMailboxId: null,
-        currentFolder: "inbox",
-        messages: [],
-        selectedMessageId: null,
-        selectedMessage: null,
-        search: "",
-        searchTimer: null
-      };
-
-      function $(id) {
-        return document.getElementById(id);
-      }
-
-      function setText(id, value) {
-        const el = $(id);
-        if (el) el.textContent = value ?? "";
-      }
-
-      function setHtml(id, value) {
-        const el = $(id);
-        if (el) el.innerHTML = value ?? "";
-      }
-
-      function escapeHtml(value) {
-        return String(value ?? "")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#39;");
-      }
-
-      function getQuerySelection() {
-        const params = new URLSearchParams(window.location.search);
-        return {
-          dominioId: Number(params.get("dominio_id") || 0) || null,
-          caixaId: Number(params.get("caixa_id") || 0) || null
-        };
-      }
-
-      function syncUrlSelection() {
-        const url = new URL(window.location.href);
-        if (state.currentDomainId) url.searchParams.set("dominio_id", String(state.currentDomainId));
-        else url.searchParams.delete("dominio_id");
-
-        if (state.currentMailboxId) url.searchParams.set("caixa_id", String(state.currentMailboxId));
-        else url.searchParams.delete("caixa_id");
-
-        window.history.replaceState({}, "", url.toString());
-      }
-
-      function currentDomain() {
-        return state.domains.find((item) => Number(item.id) === Number(state.currentDomainId)) || null;
-      }
-
-      function currentMailbox() {
-        return state.mailboxes.find((item) => Number(item.id) === Number(state.currentMailboxId)) || null;
-      }
-
-      function mailboxOptionsForCurrentDomain() {
-        if (!state.currentDomainId) return [];
-        return state.mailboxes.filter((item) => Number(item.dominio_id) === Number(state.currentDomainId));
-      }
-
-      let feedbackTimeout;
-
-      function setFeedback(message, type = "") {
-        const box = $("mailFeedback");
-        if (!box) return;
-
-        clearTimeout(feedbackTimeout);
-
-        if (!message || !String(message).trim()) {
-          box.textContent = "";
-          box.className = "mail-feedback";
-          return;
-        }
-
-        box.textContent = message;
-        box.className = `mail-feedback show ${type}`.trim();
-
-        feedbackTimeout = setTimeout(() => {
-          box.className = "mail-feedback";
-          box.textContent = "";
-        }, 4000);
-      }
-
-      function clearFeedback() {
-        setFeedback("");
-      }
-
-      function extractErrorMessage(response, payload, rawText) {
-        if (payload?.detail) {
-          if (typeof payload.detail === "string") return payload.detail;
-          if (Array.isArray(payload.detail)) {
-            return payload.detail.map((item) => item?.msg || JSON.stringify(item)).join(" | ");
-          }
-        }
-
-        if (payload?.message) return payload.message;
-
-        const text = String(rawText || "").trim();
-        if (!text) return `Erro ${response.status}`;
-        if (text.includes("Service is not reachable")) return "O serviço não está alcançável.";
-        if (text.startsWith("<!DOCTYPE html") || text.startsWith("<html")) return `Erro ${response.status} ao falar com o servidor.`;
-
-        return text.slice(0, 400);
-      }
-
-      async function parseApiResponse(response) {
-        const rawText = await response.text();
-        let payload = null;
-
-        try {
-          payload = rawText ? JSON.parse(rawText) : {};
-        } catch (_) {
-          payload = null;
-        }
-
-        if (!response.ok) {
-          const error = new Error(extractErrorMessage(response, payload, rawText));
-          error.status = response.status;
-          error.payload = payload;
-          error.rawText = rawText;
-          throw error;
-        }
-
-        return payload || {};
-      }
-
-      async function api(url, options = {}) {
-        const config = {
-          method: options.method || "GET",
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-            ...(options.body ? { "Content-Type": "application/json" } : {}),
-            ...(options.headers || {})
-          },
-          ...(options.body ? { body: JSON.stringify(options.body) } : {})
-        };
-
-        const response = await fetch(url, config);
-
-        if (response.status === 401) {
-          window.location.href = state.authMode === "platform" ? "/login" : "/webmail-login";
-          throw new Error("Sessão expirada.");
-        }
-
-        return parseApiResponse(response);
-      }
-
-      async function fetchContext() {
-        const initial = getQuerySelection();
-        const params = new URLSearchParams();
-
-        if (initial.dominioId) params.set("dominio_id", String(initial.dominioId));
-        if (initial.caixaId) params.set("caixa_id", String(initial.caixaId));
-
-        const suffix = params.toString() ? `?${params.toString()}` : "";
-        const response = await fetch(`/api/webmail/context${suffix}`, {
-          method: "GET",
-          credentials: "include",
-          headers: { Accept: "application/json" }
-        });
-
-        if (response.status === 401) {
-          window.location.href = "/webmail-login";
-          throw new Error("Acesso ao webmail não autorizado.");
-        }
-
-        return parseApiResponse(response);
-      }
-
-      function applyMailboxOnlyUi() {
-        const domainSelect = $("domainSelect");
-        const mailboxSelect = $("mailboxSelect");
-        const contextRow = document.querySelector(".mail-context-row");
-
-        if (state.authMode === "mailbox") {
-          if (domainSelect) domainSelect.disabled = true;
-          if (mailboxSelect) mailboxSelect.disabled = true;
-          if (contextRow) contextRow.style.display = "none";
-          return;
-        }
-
-        if (contextRow) contextRow.style.display = "flex";
-      }
-
-      async function loadContext() {
-        const data = await fetchContext();
-
-        state.context = data;
-        state.authMode = data?.auth_mode || "mailbox";
-        state.company = data?.company || null;
-        state.user = data?.user || null;
-        state.domains = Array.isArray(data?.domains) ? data.domains : [];
-        state.mailboxes = Array.isArray(data?.mailboxes) ? data.mailboxes : [];
-        state.currentDomainId = data?.selected_domain_id || null;
-        state.currentMailboxId = data?.selected_mailbox_id || null;
-
-        renderDomainOptions();
-        renderMailboxOptions();
-        renderCurrentContext();
-        updateComposeFrom();
-        applyMailboxOnlyUi();
-        syncUrlSelection();
-      }
-
-      function renderDomainOptions() {
-        const select = $("domainSelect");
-        if (!select) return;
-
-        if (!state.domains.length) {
-          select.innerHTML = `<option value="">Nenhum domínio cadastrado</option>`;
-          select.disabled = true;
-          return;
-        }
-
-        select.disabled = state.authMode === "mailbox";
-        select.innerHTML = state.domains.map((domain) => {
-          const selected = Number(domain.id) === Number(state.currentDomainId) ? "selected" : "";
-          const label = domain.is_primary ? `${domain.name} (principal)` : domain.name;
-          return `<option value="${domain.id}" ${selected}>${escapeHtml(label)}</option>`;
-        }).join("");
-      }
-
-      function renderMailboxOptions() {
-        const select = $("mailboxSelect");
-        if (!select) return;
-
-        const items = mailboxOptionsForCurrentDomain();
-
-        if (!items.length) {
-          select.innerHTML = `<option value="">Nenhuma caixa nesse domínio</option>`;
-          select.disabled = true;
-          return;
-        }
-
-        if (!items.some((item) => Number(item.id) === Number(state.currentMailboxId))) {
-          const activeFirst = items.find((item) => item.is_active) || items[0] || null;
-          state.currentMailboxId = activeFirst?.id || null;
-        }
-
-        select.disabled = state.authMode === "mailbox";
-        select.innerHTML = items.map((mailbox) => {
-          const selected = Number(mailbox.id) === Number(state.currentMailboxId) ? "selected" : "";
-          const status = mailbox.is_active ? "" : " (inativa)";
-          return `<option value="${mailbox.id}" ${selected}>${escapeHtml(mailbox.email + status)}</option>`;
-        }).join("");
-      }
-
-      function renderCurrentContext() {
-        const info = $("currentContextInfo");
-        if (!info) return;
-
-        const company = state.company || {};
-        const mailbox = currentMailbox();
-
-        if (!state.domains.length) {
-          info.innerHTML = `${escapeHtml(company.name || "AureMail")}`;
-          return;
-        }
-
-        if (!mailbox) {
-          info.innerHTML = `${escapeHtml(company.name || "AureMail")}`;
-          return;
-        }
-
-        if (state.authMode === "mailbox") {
-          info.innerHTML = `Caixa: ${escapeHtml(mailbox.email)}`;
-          return;
-        }
-
-        info.innerHTML = `Empresa: ${escapeHtml(company.name || "AureMail")}`;
-      }
-
-      function updateComposeFrom() {
-        const fromInput = $("from");
-        const mailbox = currentMailbox();
-        if (fromInput) fromInput.value = mailbox?.email || "";
-      }
-
-      function renderFolderCounts(counts = {}) {
-        document.querySelectorAll(".mail-nav__item").forEach((item) => {
-          const folder = item.dataset.folder;
-          const counter = item.querySelector("strong");
-          const isActive = folder === state.currentFolder;
-
-          item.classList.toggle("active", isActive);
-
-          if (counter) {
-            counter.textContent = String(counts?.[folder] ?? 0);
-          }
-        });
-      }
-
-      function formatDate(value) {
-        if (!value) return "Agora";
-
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return "Data inválida";
-
-        const now = new Date();
-        if (date.toDateString() === now.toDateString()) {
-          return new Intl.DateTimeFormat("pt-BR", { timeStyle: "short" }).format(date);
-        }
-
-        return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(date);
-      }
-
-      function renderNoDomainState() {
-        renderFolderCounts({});
-        setText("mailResultsCount", "");
-        setHtml("mailList", `<div class="mail-empty-state">Sem domínios.</div>`);
-        setHtml("mailView", `<div class="mail-empty-state">Nenhum domínio disponível.</div>`);
-      }
-
-      function renderNoMailboxState() {
-        renderFolderCounts({});
-        setText("mailResultsCount", "");
-        setHtml("mailList", `<div class="mail-empty-state">Sem caixas.</div>`);
-        setHtml("mailView", `<div class="mail-empty-state">Nenhuma caixa.</div>`);
-      }
-
-      function renderMessageList() {
-        const list = $("mailList");
-        if (!list) return;
-
-        if (!state.messages.length) {
-          list.innerHTML = `<div class="mail-empty-state">Sua caixa está vazia.</div>`;
-          return;
-        }
-
-        list.innerHTML = state.messages.map((item) => {
-          const active = Number(item.id) === Number(state.selectedMessageId);
-          const unread = !item.is_read;
-          const person = item.direction === "outbound"
-            ? (item.to_email || "Destinatário")
-            : (item.from_name || item.from_email || "Remetente");
-
-          return `
-            <div class="mail-item ${active ? "active" : ""} ${unread ? "unread" : ""}" data-message-id="${item.id}">
-              <div class="mail-item__top">
-                <div class="mail-item__from">${escapeHtml(person)}</div>
-                <div class="mail-item__date">${escapeHtml(formatDate(item.sent_at || item.created_at))}</div>
-              </div>
-              <div class="mail-item__subject">${escapeHtml(item.subject || "(sem assunto)")}</div>
-              <div class="mail-item__preview">${escapeHtml(item.preview || "")}</div>
-            </div>
-          `;
-        }).join("");
-      }
-
-      function renderEmptyMessageView() {
-        setHtml("mailView", `
-          <div class="mail-empty-state" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 20px;">
-            <dotlottie-wc src="https://lottie.host/b49626bb-40aa-4976-82a9-c395af7a7fa0/tyaUHe0ish.lottie" style="width: 400px; height: 400px; max-width: 100%;" autoplay loop></dotlottie-wc>
-            <span style="font-size: 16px; font-weight: 500; color: var(--text-muted); margin-top: -20px;">Nenhuma conversa selecionada</span>
-          </div>
-        `);
-      }
-
-      function renderMessageView() {
-        const view = $("mailView");
-        const msg = state.selectedMessage;
-
-        if (!view || !msg) {
-          renderEmptyMessageView();
-          return;
-        }
-
-        view.innerHTML = `
-          <div class="mail-view__header">
-            <h2>${escapeHtml(msg.subject || "(sem assunto)")}</h2>
-          </div>
-          <div class="mail-view__meta">
-            <div class="mail-view__sender">${escapeHtml(msg.from_name || msg.from_email || "-")} <span>&lt;${escapeHtml(msg.from_email || "-")}&gt;</span></div>
-            <div class="mail-view__to">Para: ${escapeHtml(msg.to_email || "-")} • ${escapeHtml(formatDate(msg.sent_at || msg.created_at))}</div>
-          </div>
-          <div class="mail-view__body">${escapeHtml(msg.body_text || "Esta mensagem não possui conteúdo de texto.")}</div>
-        `;
-      }
-
-      async function forceInboxSync(mailboxId) {
-        return api(`/api/webmail/mailboxes/${mailboxId}/sync`, { method: "POST" });
-      }
-
-      async function loadMessages() {
-        if (!state.domains.length) {
-          renderNoDomainState();
-          return;
-        }
-
-        const mailbox = currentMailbox();
-        if (!mailbox) {
-          renderNoMailboxState();
-          return;
-        }
-
-        clearFeedback();
-
-        const params = new URLSearchParams({
-          folder: state.currentFolder,
-          sync: state.currentFolder === "inbox" ? "true" : "false"
-        });
-
-        if (state.search) params.set("q", state.search);
-
-        let data;
-
-        try {
-          data = await api(`/api/webmail/mailboxes/${mailbox.id}/messages?${params.toString()}`);
-        } catch (error) {
-          const isInboxSyncFailure = state.currentFolder === "inbox" && Number(error?.status) === 502;
-
-          if (!isInboxSyncFailure) throw error;
-
-          setFeedback(`${error.message || "Falha na sincronização."} Exibindo salvas.`, "error");
-          params.set("sync", "false");
-          data = await api(`/api/webmail/mailboxes/${mailbox.id}/messages?${params.toString()}`);
-        }
-
-        state.messages = Array.isArray(data?.items) ? data.items : [];
-        renderFolderCounts(data?.folder_counts || {});
-        renderMessageList();
-        setText("mailResultsCount", `${state.messages.length} conversas`);
-
-        const exists = state.messages.some((item) => Number(item.id) === Number(state.selectedMessageId));
-        if (!exists) {
-          state.selectedMessageId = null;
-          state.selectedMessage = null;
-        }
-
-        if (state.selectedMessageId) {
-          await loadMessageDetail(state.selectedMessageId, false);
-        } else {
-          renderEmptyMessageView();
-        }
-      }
-
-      async function loadMessageDetail(messageId, markAsRead = true) {
-        const mailbox = currentMailbox();
-
-        if (!mailbox || !messageId) {
-          renderEmptyMessageView();
-          return;
-        }
-
-        const data = await api(`/api/webmail/mailboxes/${mailbox.id}/messages/${messageId}`);
-        state.selectedMessageId = Number(messageId);
-        state.selectedMessage = data?.item || null;
-        renderMessageView();
-
-        if (markAsRead && state.selectedMessage && !state.selectedMessage.is_read) {
-          try {
-            await api(`/api/webmail/mailboxes/${mailbox.id}/messages/${messageId}/read`, { method: "POST" });
-
-            state.selectedMessage.is_read = true;
-            state.messages = state.messages.map((item) =>
-              Number(item.id) === Number(messageId)
-                ? { ...item, is_read: true }
-                : item
-            );
-
-            renderMessageList();
-          } catch (_) {}
-        }
-      }
-
-      function openCompose() {
-        if (!currentMailbox()) {
-          setFeedback("Selecione uma caixa real.", "error");
-          return;
-        }
-
-        $("composeOverlay")?.classList.add("active");
-        $("composeModal")?.classList.add("active");
-        $("composeModal")?.setAttribute("aria-hidden", "false");
-        updateComposeFrom();
-      }
-
-      function closeCompose() {
-        $("composeOverlay")?.classList.remove("active");
-        $("composeModal")?.classList.remove("active");
-        $("composeModal")?.setAttribute("aria-hidden", "true");
-      }
-
-      function resetComposeForm() {
-        $("composeForm")?.reset();
-        updateComposeFrom();
-      }
-
-      async function sendCompose(saveAsDraft) {
-        const mailbox = currentMailbox();
-
-        if (!mailbox) {
-          setFeedback("Nenhuma caixa selecionada.", "error");
-          return;
-        }
-
-        const to = $("to")?.value?.trim();
-        const subject = $("subject")?.value?.trim();
-        const body = $("message")?.value?.trim();
-
-        if (!to) {
-          setFeedback("Informe o destinatário.", "error");
-          return;
-        }
-
-        const result = await api(`/api/webmail/mailboxes/${mailbox.id}/compose`, {
-          method: "POST",
-          body: {
-            to,
-            subject: subject || null,
-            body: body || null,
-            save_as_draft: Boolean(saveAsDraft)
-          }
-        });
-
-        closeCompose();
-        resetComposeForm();
-        state.currentFolder = saveAsDraft ? "drafts" : "sent";
-        state.selectedMessageId = result?.item?.id || null;
-        state.selectedMessage = null;
-        await loadMessages();
-        setFeedback(result?.message || "Mensagem processada.", "success");
-      }
-
-      async function moveSelectedToTrash() {
-        const mailbox = currentMailbox();
-        const msg = state.selectedMessage;
-
-        if (!mailbox || !msg) {
-          setFeedback("Selecione uma mensagem.", "error");
-          return;
-        }
-
-        await api(`/api/webmail/mailboxes/${mailbox.id}/messages/${msg.id}/move`, {
-          method: "POST",
-          body: { target_folder: "trash" }
-        });
-
-        state.selectedMessage = null;
-        state.selectedMessageId = null;
-        await loadMessages();
-        setFeedback("Movida para a lixeira.", "success");
-      }
-
-      function prefillReply() {
-        const msg = state.selectedMessage;
-
-        if (!msg) {
-          setFeedback("Selecione uma mensagem.", "error");
-          return;
-        }
-
-        openCompose();
-
-        if ($("to")) $("to").value = msg.from_email || "";
-        if ($("subject")) {
-          $("subject").value = msg.subject?.startsWith("Re:")
-            ? msg.subject
-            : `Re: ${msg.subject || ""}`.trim();
-        }
-        if ($("message")) {
-          $("message").value = `\n\n---\n${msg.body_text || ""}`;
-        }
-      }
-
-      function prefillForward() {
-        const msg = state.selectedMessage;
-
-        if (!msg) {
-          setFeedback("Selecione uma mensagem.", "error");
-          return;
-        }
-
-        openCompose();
-
-        if ($("to")) $("to").value = "";
-        if ($("subject")) {
-          $("subject").value = msg.subject?.startsWith("Fwd:")
-            ? msg.subject
-            : `Fwd: ${msg.subject || ""}`.trim();
-        }
-        if ($("message")) {
-          $("message").value = [
-            "",
-            "",
-            "--- Encaminhado ---",
-            `De: ${msg.from_email || ""}`,
-            `Para: ${msg.to_email || ""}`,
-            `Data: ${formatDate(msg.sent_at || msg.created_at)}`,
-            `Assunto: ${msg.subject || ""}`,
-            "",
-            msg.body_text || ""
-          ].join("\n");
-        }
-      }
-
-      async function logout() {
-        try {
-          if (state.authMode === "mailbox") {
-            await api("/api/webmail-auth/logout", { method: "POST" });
-          } else {
-            await api("/api/logout", { method: "POST" });
-          }
-        } finally {
-          window.location.href = state.authMode === "mailbox" ? "/webmail-login" : "/login";
-        }
-      }
-
-      function bindEvents() {
-        document.addEventListener("keydown", (event) => {
-          if (event.key === "Escape") {
-            let handled = false;
-
-            const composeModal = $("composeModal");
-            if (composeModal?.classList.contains("active")) {
-              closeCompose();
-              handled = true;
-            }
-
-            const sidebar = document.querySelector(".mail-sidebar");
-            const overlay = $("sidebarOverlay");
-            if (sidebar?.classList.contains("open")) {
-              sidebar.classList.remove("open");
-              overlay?.classList.remove("active");
-              handled = true;
-            }
-
-            if (!handled && state.selectedMessageId !== null) {
-              state.selectedMessageId = null;
-              state.selectedMessage = null;
-              renderMessageList();
-              renderEmptyMessageView();
-            }
-          }
-        });
-
-        const sidebar = document.querySelector(".mail-sidebar");
-        const overlay = $("sidebarOverlay");
-
-        $("menuToggleBtn")?.addEventListener("click", () => {
-          sidebar?.classList.add("open");
-          overlay?.classList.add("active");
-        });
-
-        overlay?.addEventListener("click", () => {
-          sidebar?.classList.remove("open");
-          overlay?.classList.remove("active");
-        });
-
-        $("domainSelect")?.addEventListener("change", async (event) => {
-          if (state.authMode === "mailbox") return;
-
-          state.currentDomainId = Number(event.target.value || 0) || null;
-          const items = mailboxOptionsForCurrentDomain();
-          const activeFirst = items.find((item) => item.is_active) || items[0] || null;
-          state.currentMailboxId = activeFirst?.id || null;
-
-          renderMailboxOptions();
-          renderCurrentContext();
-          updateComposeFrom();
-          syncUrlSelection();
-
-          state.selectedMessageId = null;
-          state.selectedMessage = null;
-
-          try {
-            await loadMessages();
-          } catch (error) {
-            setFeedback(error.message, "error");
-          }
-        });
-
-        $("mailboxSelect")?.addEventListener("change", async (event) => {
-          if (state.authMode === "mailbox") return;
-
-          state.currentMailboxId = Number(event.target.value || 0) || null;
-          renderCurrentContext();
-          updateComposeFrom();
-          syncUrlSelection();
-
-          state.selectedMessageId = null;
-          state.selectedMessage = null;
-
-          try {
-            await loadMessages();
-          } catch (error) {
-            setFeedback(error.message, "error");
-          }
-        });
-
-        document.querySelectorAll(".mail-nav__item").forEach((item) => {
-          item.addEventListener("click", async (event) => {
-            event.preventDefault();
-
-            state.currentFolder = item.dataset.folder || "inbox";
-            state.selectedMessageId = null;
-            state.selectedMessage = null;
-
-            sidebar?.classList.remove("open");
-            overlay?.classList.remove("active");
-
-            try {
-              await loadMessages();
-            } catch (error) {
-              setFeedback(error.message, "error");
-            }
-          });
-        });
-
-        $("mailList")?.addEventListener("click", async (event) => {
-          const item = event.target.closest("[data-message-id]");
-          if (!item) return;
-
-          const messageId = Number(item.getAttribute("data-message-id"));
-          if (!messageId) return;
-
-          try {
-            await loadMessageDetail(messageId, true);
-            renderMessageList();
-          } catch (error) {
-            setFeedback(error.message, "error");
-          }
-        });
-
-        $("openComposeBtn")?.addEventListener("click", () => {
-          sidebar?.classList.remove("open");
-          overlay?.classList.remove("active");
-          openCompose();
-        });
-
-        $("closeComposeBtn")?.addEventListener("click", closeCompose);
-        $("composeOverlay")?.addEventListener("click", closeCompose);
-
-        $("draftBtn")?.addEventListener("click", async () => {
-          try {
-            await sendCompose(true);
-          } catch (error) {
-            setFeedback(error.message, "error");
-          }
-        });
-
-        $("composeForm")?.addEventListener("submit", async (event) => {
-          event.preventDefault();
-          try {
-            await sendCompose(false);
-          } catch (error) {
-            setFeedback(error.message, "error");
-          }
-        });
-
-        $("replyBtn")?.addEventListener("click", prefillReply);
-        $("forwardBtn")?.addEventListener("click", prefillForward);
-
-        $("archiveBtn")?.addEventListener("click", async () => {
-          try {
-            await moveSelectedToTrash();
-          } catch (error) {
-            setFeedback(error.message, "error");
-          }
-        });
-
-        $("refreshBtn")?.addEventListener("click", async () => {
-          try {
-            await loadContext();
-
-            const mailbox = currentMailbox();
-            if (mailbox && state.currentFolder === "inbox") {
-              try {
-                await forceInboxSync(mailbox.id);
-              } catch (error) {
-                setFeedback(`${error.message} Exibindo locais.`, "error");
-              }
-            }
-
-            await loadMessages();
-            setFeedback("Sincronizado.", "success");
-          } catch (error) {
-            setFeedback(error.message, "error");
-          }
-        });
-
-        $("logoutBtn")?.addEventListener("click", logout);
-
-        $("mailSearch")?.addEventListener("input", (event) => {
-          state.search = String(event.target.value || "").trim();
-
-          if (state.searchTimer) clearTimeout(state.searchTimer);
-
-          state.searchTimer = setTimeout(async () => {
-            try {
-              state.selectedMessageId = null;
-              state.selectedMessage = null;
-              await loadMessages();
-            } catch (error) {
-              setFeedback(error.message, "error");
-            }
-          }, 250);
-        });
-      }
-
-      async function init() {
-        try {
-          await loadContext();
-          bindEvents();
-          await loadMessages();
-        } catch (error) {
-          setFeedback(error.message || "Erro ao carregar o webmail.", "error");
-        }
-      }
-
-      document.addEventListener("DOMContentLoaded", init);
-    })();
-  </script>
+  <script src="/assets/js/mail.js"></script>
 </body>
 </html>

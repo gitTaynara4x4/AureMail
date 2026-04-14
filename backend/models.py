@@ -191,6 +191,8 @@ class Mensagem(Base):
         Index("ix_mensagens_empresa_id", "empresa_id"),
         Index("ix_mensagens_created_at", "created_at"),
         Index("ix_mensagens_direction", "direction"),
+        Index("ix_mensagens_schedule_status", "schedule_status"),
+        Index("ix_mensagens_scheduled_for", "scheduled_for"),
     )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -212,6 +214,11 @@ class Mensagem(Base):
     raw_source = Column(Text, nullable=True)
 
     sent_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Novos campos para pastas/visões estilo Gmail
+    scheduled_for = Column(DateTime(timezone=True), nullable=True)
+    schedule_status = Column(String(20), nullable=False, server_default=text("'none'"))
+
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     empresa = relationship("Empresa", back_populates="mensagens")
@@ -233,6 +240,9 @@ class CaixaMensagem(Base):
         Index("ix_caixa_mensagens_caixa_email_id", "caixa_email_id"),
         Index("ix_caixa_mensagens_pasta_id", "pasta_id"),
         Index("ix_caixa_mensagens_is_read", "is_read"),
+        Index("ix_caixa_mensagens_is_starred", "is_starred"),
+        Index("ix_caixa_mensagens_is_important", "is_important"),
+        Index("ix_caixa_mensagens_snoozed_until", "snoozed_until"),
     )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -254,6 +264,11 @@ class CaixaMensagem(Base):
 
     is_read = Column(Boolean, nullable=False, server_default=text("false"))
     is_starred = Column(Boolean, nullable=False, server_default=text("false"))
+
+    # Novos campos
+    is_important = Column(Boolean, nullable=False, server_default=text("false"))
+    snoozed_until = Column(DateTime(timezone=True), nullable=True)
+
     is_deleted = Column(Boolean, nullable=False, server_default=text("false"))
 
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

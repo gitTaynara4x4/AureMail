@@ -1,3 +1,4 @@
+# backend/main.py
 from pathlib import Path
 import logging
 import os
@@ -34,6 +35,9 @@ logging.getLogger("auremail").setLevel(getattr(logging, LOG_LEVEL, logging.WARNI
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
 ASSETS_DIR = FRONTEND_DIR / "assets"
+
+# Favicon oficial do AureMail
+FAVICON_PATH = ASSETS_DIR / "img" / "fav-icon.png"
 
 app = FastAPI(
     title="AureMail",
@@ -119,6 +123,39 @@ def serve_page(
         return redirect("/login")
 
     return FileResponse(file_path)
+
+
+def serve_favicon():
+    """
+    Serve sempre o favicon oficial:
+    frontend/assets/img/fav-icon.png
+
+    Mesmo que o navegador peça /favicon.ico, entregamos o PNG correto.
+    """
+    if FAVICON_PATH.exists() and FAVICON_PATH.is_file():
+        return FileResponse(
+            FAVICON_PATH,
+            media_type="image/png",
+            headers={
+                # Ajuda a evitar o navegador ficar preso no favicon antigo durante testes.
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
+
+    # Fallbacks antigos, caso o arquivo oficial ainda não exista no servidor.
+    candidates = [
+        ASSETS_DIR / "img" / "favicon.ico",
+        ASSETS_DIR / "favicon.ico",
+        ASSETS_DIR / "img" / "logo.png",
+    ]
+
+    for file_path in candidates:
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+
+    return RedirectResponse(url="/login", status_code=302)
 
 
 @app.get("/", include_in_schema=False)
@@ -216,15 +253,7 @@ def mail_page(request: Request):
 
 
 @app.get("/favicon.ico", include_in_schema=False)
+@app.get("/favicon.png", include_in_schema=False)
+@app.get("/apple-touch-icon.png", include_in_schema=False)
 def favicon():
-    candidates = [
-        ASSETS_DIR / "img" / "favicon.ico",
-        ASSETS_DIR / "favicon.ico",
-        ASSETS_DIR / "img" / "logo.png",
-    ]
-
-    for file_path in candidates:
-        if file_path.exists() and file_path.is_file():
-            return FileResponse(file_path)
-
-    return RedirectResponse(url="/login", status_code=302)
+    return serve_favicon()
